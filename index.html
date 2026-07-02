@@ -1,0 +1,1025 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Holiday / Off Time Staff Tracker</title>
+<style>
+  :root {
+    --navy:        #0f1f33;
+    --navy-light:  #16314f;
+    --navy-mid:    #1c3a5c;
+    --dark-green:  #14532d;
+    --green:       #1b6b3a;
+    --green-light: #2f9e58;
+    --green-pale:  #e3f5e9;
+    --white:       #ffffff;
+    --grey-50:     #f4f6f5;
+    --grey-100:    #e7ebe9;
+    --grey-200:    #d4dbd7;
+    --grey-300:    #c7cfcb;
+    --grey-500:    #8a948f;
+    --grey-700:    #4b554f;
+    --black:       #111111;
+    --text:        #1a1f1c;
+    --orange:      #f97316;
+    --radius:      12px;
+    --radius-sm:   8px;
+    --shadow:      0 2px 8px rgba(15,31,51,0.08), 0 1px 2px rgba(15,31,51,0.06);
+    --shadow-lg:   0 8px 32px rgba(15,31,51,0.18), 0 2px 8px rgba(15,31,51,0.10);
+  }
+  *, *::before, *::after { box-sizing: border-box; }
+  body { margin: 0; font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; background: var(--grey-50); color: var(--text); min-height: 100vh; }
+
+  /* ── HEADER ─────────────────────────────────────────── */
+  .site-header { background: linear-gradient(135deg, var(--navy) 0%, var(--navy-mid) 60%, var(--dark-green) 100%); border-bottom: 3px solid var(--dark-green); transition: background 0.28s ease, border-color 0.28s ease; }
+  .site-header.theme-emp { background: linear-gradient(135deg, var(--dark-green) 0%, var(--green) 55%, #3aad6a 100%); border-bottom-color: rgba(15,31,51,0.35); }
+  .header-inner { max-width: 1000px; margin: 0 auto; padding: 20px 24px 22px; display: flex; align-items: center; gap: 18px; }
+  .logo-wrap { flex-shrink: 0; width: 64px; height: 64px; border-radius: 12px; overflow: hidden; background: var(--white); display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 10px rgba(0,0,0,0.25); }
+  .logo-wrap img { width: 100%; height: 100%; object-fit: contain; padding: 4px; }
+  .header-text { flex: 1; }
+  .header-text h1 { margin: 0 0 4px; font-size: 22px; font-weight: 800; color: var(--white); letter-spacing: 0.2px; line-height: 1.2; }
+  .header-text .subtitle { margin: 0; font-size: 13px; color: rgba(255,255,255,0.6); }
+  .year-badge { flex-shrink: 0; background: rgba(255,255,255,0.10); border: 1px solid rgba(255,255,255,0.18); border-radius: 24px; padding: 8px 18px; text-align: center; color: var(--white); }
+  .year-badge .year-num { font-size: 22px; font-weight: 800; line-height: 1; }
+  .year-badge .year-lbl { font-size: 11px; color: rgba(255,255,255,0.55); text-transform: uppercase; letter-spacing: 0.6px; margin-top: 2px; }
+
+  /* ── STATS BAR ───────────────────────────────────────── */
+  .stats-bar { background: var(--navy-light); border-bottom: 1px solid rgba(255,255,255,0.07); transition: background 0.28s ease; }
+  .site-header.theme-emp .stats-bar { background: rgba(0,0,0,0.22); }
+  .stats-inner { max-width: 1000px; margin: 0 auto; padding: 12px 24px; display: flex; }
+  .stat-item { flex: 1; text-align: center; border-right: 1px solid rgba(255,255,255,0.08); padding: 0 12px; }
+  .stat-item:last-child { border-right: none; }
+  .stat-num { font-size: 22px; font-weight: 800; color: var(--green-light); line-height: 1; transition: color 0.28s ease; }
+  .site-header.theme-emp .stat-num { color: var(--white); }
+  .stat-lbl { font-size: 11px; color: rgba(255,255,255,0.45); text-transform: uppercase; letter-spacing: 0.5px; margin-top: 3px; }
+
+  /* ── STORAGE BAR ─────────────────────────────────────── */
+  .storage-bar { background: var(--white); border-bottom: 1px solid var(--grey-100); font-size: 12.5px; }
+  .storage-inner { max-width: 1000px; margin: 0 auto; padding: 8px 24px; display: flex; align-items: center; gap: 8px; }
+  .storage-bar.sb-ok    { background: #f0faf4; border-bottom-color: rgba(27,107,58,0.2); }
+  .storage-bar.sb-warn  { background: #fffbeb; border-bottom-color: #fbbf24; }
+  .storage-bar.sb-error { background: #fef2f2; border-bottom-color: #fca5a5; }
+  .storage-bar.sb-info  { background: var(--grey-50); }
+  .storage-icon { font-size: 14px; flex-shrink: 0; }
+  .storage-text { flex: 1; color: var(--grey-700); }
+  .storage-bar.sb-ok    .storage-text { color: var(--dark-green); }
+  .storage-bar.sb-warn  .storage-text { color: #92400e; }
+  .storage-bar.sb-error .storage-text { color: #991b1b; }
+
+  /* ── TABS ────────────────────────────────────────────── */
+  .tabs-bar { background: var(--white); border-bottom: 2px solid var(--grey-100); }
+  .tabs-inner { max-width: 1000px; margin: 0 auto; padding: 0 24px; display: flex; gap: 0; }
+  .tab-btn {
+    padding: 13px 22px; font-size: 14px; font-weight: 600;
+    color: var(--grey-500); border: none; background: none; cursor: pointer;
+    border-bottom: 3px solid transparent; margin-bottom: -2px;
+    display: flex; align-items: center; gap: 8px;
+    transition: color 0.15s, border-color 0.15s;
+  }
+  .tab-btn:hover { color: var(--navy); }
+  .tab-btn.active { color: var(--dark-green); border-bottom-color: var(--dark-green); font-weight: 700; }
+  .tab-count { background: var(--grey-100); color: var(--grey-700); border-radius: 10px; padding: 2px 8px; font-size: 11px; font-weight: 700; transition: background 0.15s, color 0.15s; }
+  .tab-btn.active .tab-count { background: var(--green-pale); color: var(--dark-green); }
+
+  /* ── MAIN ────────────────────────────────────────────── */
+  .container { max-width: 1000px; margin: 0 auto; padding: 28px 24px 120px; }
+
+  /* ── TOOLBAR ─────────────────────────────────────────── */
+  .toolbar { display: flex; align-items: center; gap: 12px; margin-bottom: 22px; flex-wrap: wrap; }
+  .search-wrap { flex: 1; min-width: 200px; position: relative; }
+  .search-wrap svg { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); color: var(--grey-500); pointer-events: none; }
+  .search-input { width: 100%; padding: 10px 12px 10px 36px; border-radius: var(--radius-sm); border: 1.5px solid var(--grey-200); font-size: 14px; font-family: inherit; color: var(--text); background: var(--white); transition: border-color 0.15s; box-shadow: var(--shadow); }
+  .search-input:focus { outline: none; border-color: var(--green); }
+  .search-input::placeholder { color: var(--grey-500); }
+
+  /* ── BUTTONS ─────────────────────────────────────────── */
+  .btn { border: none; cursor: pointer; font-family: inherit; font-weight: 600; border-radius: var(--radius-sm); padding: 10px 18px; font-size: 14px; display: inline-flex; align-items: center; gap: 6px; transition: transform 0.08s, background 0.15s; white-space: nowrap; }
+  .btn:active { transform: scale(0.97); }
+  .btn-primary { background: var(--dark-green); color: var(--white); box-shadow: var(--shadow); }
+  .btn-primary:hover { background: var(--green); }
+  .btn-ghost { background: transparent; color: var(--grey-700); border: 1.5px solid var(--grey-300); }
+  .btn-ghost:hover { background: var(--grey-100); }
+  .btn-sm  { padding: 6px 12px;  font-size: 12.5px; border-radius: 6px; }
+  .btn-xs  { padding: 4px 10px;  font-size: 12px;   border-radius: 5px; }
+  .btn-navy { background: var(--navy); color: var(--white); }
+  .btn-navy:hover { background: var(--navy-light); }
+
+  /* ── CARDS ───────────────────────────────────────────── */
+  .card-list { display: flex; flex-direction: column; gap: 16px; }
+  .instructor-card { background: var(--white); border-radius: var(--radius); box-shadow: var(--shadow); border: 1px solid var(--grey-100); overflow: hidden; transition: box-shadow 0.2s; }
+  @keyframes card-flash { 0% { box-shadow: 0 0 0 0 rgba(47,158,88,0.6); } 40% { box-shadow: 0 0 0 6px rgba(47,158,88,0.25); } 100% { box-shadow: 0 0 0 0 rgba(47,158,88,0); } }
+  .instructor-card.flash { animation: card-flash 0.9s ease; }
+
+  .card-header { display: flex; align-items: center; gap: 14px; padding: 18px 20px; cursor: pointer; user-select: none; transition: background 0.1s; }
+  .card-header:hover { background: var(--grey-50); }
+  .avatar-wrap { position: relative; flex-shrink: 0; }
+  .instructor-avatar { width: 46px; height: 46px; border-radius: 50%; background: linear-gradient(135deg, var(--navy) 0%, var(--navy-mid) 100%); display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: 800; color: var(--white); }
+  .card-inst .instructor-avatar { background: linear-gradient(135deg, var(--navy) 0%, var(--navy-mid) 100%); }
+  .card-emp  .instructor-avatar { background: linear-gradient(135deg, var(--dark-green) 0%, var(--green-light) 100%); }
+  .on-vacation-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--orange); border: 2px solid var(--white); position: absolute; bottom: 0; right: 0; }
+  .card-info { flex: 1; min-width: 0; }
+  .card-name { font-size: 17px; font-weight: 700; margin: 0 0 3px; color: var(--navy); }
+  .card-inst .card-name { color: var(--navy); }
+  .card-emp  .card-name { color: var(--dark-green); }
+  .card-meta { font-size: 12.5px; color: var(--grey-500); margin: 0; }
+  .year-summary { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+  .year-pill { background: var(--navy); color: var(--white); border-radius: 20px; padding: 6px 14px; text-align: center; font-size: 13px; font-weight: 700; line-height: 1.35; min-width: 100px; }
+  .year-pill .pill-top { color: var(--green-light); font-size: 15px; font-weight: 800; }
+  .card-emp .year-pill { background: var(--dark-green); }
+  .card-emp .year-pill .pill-top { color: var(--white); }
+  .year-pill .pill-sub { font-size: 10.5px; color: rgba(255,255,255,0.7); margin-top: 1px; }
+  .year-pill .pill-bot { font-size: 10px; color: rgba(255,255,255,0.45); text-transform: uppercase; letter-spacing: 0.4px; margin-top: 1px; }
+  .chevron { width: 20px; height: 20px; color: var(--grey-500); flex-shrink: 0; transition: transform 0.18s; }
+  .card-collapsed .chevron { transform: rotate(-90deg); }
+
+  /* ── CARD BODY ───────────────────────────────────────── */
+  .card-body { border-top: 1px solid var(--grey-100); padding: 16px 20px 18px; }
+  .card-collapsed .card-body { display: none; }
+
+  /* ── HEADER COUNTDOWN BADGE ──────────────────────────── */
+  .hdr-countdown { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 10px; border: 1.5px solid; flex-shrink: 0; }
+  .hdr-cd-active   { background: #fff7ed; border-color: #fed7aa; color: #92400e; }
+  .hdr-cd-upcoming { background: #f0f9ff; border-color: #93c5fd; color: #1e3a5f; }
+  .hdc-icon { font-size: 17px; flex-shrink: 0; line-height: 1; }
+  .hdc-text { flex: 1; min-width: 0; }
+  .hdc-main { font-size: 12px; font-weight: 700; line-height: 1.3; white-space: nowrap; }
+  .hdc-sub  { font-size: 10.5px; opacity: 0.65; margin-top: 1px; white-space: nowrap; }
+  .hdc-right { text-align: center; flex-shrink: 0; line-height: 1; }
+  .hdc-num  { font-size: 26px; font-weight: 900; letter-spacing: -0.5px; }
+  .hdc-unit { font-size: 9px; font-weight: 700; text-transform: uppercase; opacity: 0.6; letter-spacing: 0.3px; }
+  @media (max-width: 720px) { .hdr-countdown { display: none; } }
+
+  /* ── MINI CALENDAR ───────────────────────────────────── */
+  .mini-cal-wrap { background: var(--grey-50); border: 1px solid var(--grey-100); border-radius: 10px; padding: 14px 16px 12px; margin-bottom: 16px; }
+  .mini-cal-header { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+  .mini-cal-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--grey-700); }
+  .mini-cal-legend { display: flex; align-items: center; gap: 12px; font-size: 11px; color: var(--grey-500); }
+  .legend-dot { display: inline-flex; align-items: center; gap: 4px; }
+  .legend-swatch { width: 12px; height: 12px; border-radius: 3px; flex-shrink: 0; }
+  .mini-cal-scroll { display: flex; gap: 20px; overflow-x: auto; padding-bottom: 4px; }
+  .mini-cal-scroll::-webkit-scrollbar { height: 4px; }
+  .mini-cal-scroll::-webkit-scrollbar-track { background: var(--grey-100); border-radius: 2px; }
+  .mini-cal-scroll::-webkit-scrollbar-thumb { background: var(--grey-300); border-radius: 2px; }
+  .cal-month { flex-shrink: 0; }
+  .cal-month-name { font-size: 11.5px; font-weight: 700; color: var(--navy); text-align: center; margin-bottom: 7px; }
+  .cal-grid { display: grid; grid-template-columns: repeat(7, 26px); gap: 2px; }
+  .cal-dh { width: 26px; height: 18px; font-size: 9.5px; font-weight: 700; color: var(--grey-500); text-align: center; display: flex; align-items: center; justify-content: center; }
+  .cal-cell { width: 26px; height: 26px; font-size: 11px; font-weight: 500; border-radius: 4px; display: flex; align-items: center; justify-content: center; color: var(--text); }
+  .cal-vac { background: var(--orange); color: var(--white); font-weight: 700; border-radius: 3px; }
+  .cal-vac-start { border-radius: 4px 0 0 4px; }
+  .cal-vac-end   { border-radius: 0 4px 4px 0; }
+  .cal-vac-mid   { border-radius: 0; }
+  .cal-today:not(.cal-vac) { background: var(--navy); color: var(--white); font-weight: 800; border-radius: 50%; }
+  .cal-today.cal-vac { outline: 2.5px solid var(--navy); outline-offset: -2px; }
+  .cal-weekend { color: var(--grey-500); }
+  .cal-weekend.cal-vac { color: var(--white); }
+
+  /* ── VACATION LIST ───────────────────────────────────── */
+  .vacation-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; }
+  .vac-item { display: flex; align-items: center; gap: 12px; padding: 11px 14px; background: var(--grey-50); border-radius: 8px; border: 1px solid var(--grey-100); transition: border-color 0.1s; }
+  .vac-item:hover { border-color: var(--grey-300); }
+  .vac-icon { width: 34px; height: 34px; border-radius: 8px; background: linear-gradient(135deg, var(--dark-green), var(--green-light)); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .vac-icon.vac-icon-active { background: linear-gradient(135deg, var(--orange), #fb923c); }
+  .vac-icon svg { color: var(--white); }
+  .vac-dates { flex: 1; min-width: 0; }
+  .vac-date-range { font-size: 14px; font-weight: 700; color: var(--navy); margin: 0 0 2px; }
+  .vac-note { font-size: 12px; color: var(--grey-500); margin: 0; }
+  .vac-duration { text-align: right; flex-shrink: 0; }
+  .vac-dur-main { font-size: 13px; font-weight: 700; color: var(--dark-green); white-space: nowrap; }
+  .vac-dur-sub  { font-size: 11px; color: var(--grey-500); white-space: nowrap; }
+  .vac-active-tag { font-size: 10.5px; font-weight: 700; color: var(--orange); background: #fff7ed; border: 1px solid #fed7aa; border-radius: 10px; padding: 2px 7px; white-space: nowrap; }
+  .vac-del-btn { background: transparent; border: none; cursor: pointer; color: var(--grey-300); padding: 5px; border-radius: 5px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: color 0.1s, background 0.1s; }
+  .vac-del-btn:hover { color: #b3261e; background: #fde8e7; }
+  .no-vacations { font-size: 13px; color: var(--grey-500); padding: 8px 0; margin: 0 0 14px; }
+
+  /* ── VACATION COUNTDOWN (in body) ────────────────────── */
+  .vac-countdown { display: flex; align-items: center; gap: 14px; padding: 14px 16px; border-radius: 10px; border: 1.5px solid; margin-bottom: 16px; }
+  .vac-countdown-active   { background: #fff7ed; border-color: #fed7aa; color: #92400e; }
+  .vac-countdown-upcoming { background: #f0f9ff; border-color: #93c5fd; color: #1e3a5f; }
+  .vcd-icon  { font-size: 22px; flex-shrink: 0; line-height: 1; }
+  .vcd-left  { flex: 1; min-width: 0; }
+  .vcd-label { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; opacity: 0.65; margin-bottom: 3px; }
+  .vcd-line1 { font-size: 14.5px; font-weight: 700; margin-bottom: 2px; line-height: 1.3; }
+  .vcd-line2 { font-size: 12px; opacity: 0.65; }
+  .vcd-right { text-align: center; flex-shrink: 0; min-width: 56px; }
+  .vcd-count { font-size: 40px; font-weight: 900; line-height: 1; letter-spacing: -1px; }
+  .vcd-unit  { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; opacity: 0.65; margin-top: 1px; }
+
+  /* ── CARD FOOTER ─────────────────────────────────────── */
+  .card-footer { display: flex; justify-content: space-between; align-items: center; border-top: 1px dashed var(--grey-200); padding-top: 14px; gap: 10px; flex-wrap: wrap; }
+  .card-footer-stats { font-size: 12px; color: var(--grey-500); }
+  .card-footer-stats strong { color: var(--navy); }
+
+  /* ── MODAL ───────────────────────────────────────────── */
+  .modal-overlay { position: fixed; inset: 0; background: rgba(15,31,51,0.72); display: none; align-items: center; justify-content: center; z-index: 200; padding: 20px; }
+  .modal-overlay.open { display: flex; }
+  .modal { background: var(--white); border-radius: var(--radius); box-shadow: var(--shadow-lg); padding: 28px; width: 100%; max-width: 480px; animation: modal-in 0.18s ease; max-height: 90vh; overflow-y: auto; }
+  @keyframes modal-in { from { opacity: 0; transform: scale(0.96) translateY(-8px); } to { opacity: 1; transform: scale(1) translateY(0); } }
+  .modal-title { font-size: 18px; font-weight: 800; color: var(--navy); margin: 0 0 20px; display: flex; align-items: center; gap: 8px; }
+  .modal-title svg { color: var(--dark-green); }
+
+  /* ── FORM ────────────────────────────────────────────── */
+  .field { margin-bottom: 14px; }
+  .field label { display: block; font-size: 11.5px; font-weight: 700; color: var(--grey-700); text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 6px; }
+  .field input[type=text], .field input[type=date], .field input[type=number], .field textarea { width: 100%; padding: 9px 12px; border-radius: var(--radius-sm); border: 1.5px solid var(--grey-200); font-size: 14px; font-family: inherit; color: var(--text); background: var(--grey-50); transition: border-color 0.15s, background 0.15s; }
+  .field input:focus, .field textarea:focus { outline: none; border-color: var(--green); background: var(--white); }
+  .field textarea { resize: vertical; min-height: 60px; }
+  .radio-group { display: flex; gap: 8px; }
+  .radio-option { flex: 1; cursor: pointer; }
+  .radio-option input { display: none; }
+  .radio-label { display: block; padding: 8px 10px; border: 1.5px solid var(--grey-200); border-radius: var(--radius-sm); text-align: center; font-size: 13px; font-weight: 600; color: var(--grey-700); background: var(--grey-50); transition: all 0.1s; }
+  .radio-option input:checked + .radio-label { background: var(--navy); border-color: var(--navy); color: var(--white); }
+  .field-hidden { display: none !important; }
+  .field-hint { font-size: 11.5px; color: var(--grey-500); margin-top: 5px; }
+  .form-divider { border: none; border-top: 1px solid var(--grey-100); margin: 16px 0; }
+  .form-error { background: #fde8e7; border: 1px solid #f3b9b4; border-radius: 6px; padding: 9px 13px; font-size: 13px; color: #b3261e; margin-bottom: 14px; display: none; }
+  .form-error.show { display: block; }
+  .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
+
+  /* ── EMPTY / NO RESULTS ──────────────────────────────── */
+  .empty-state { text-align: center; padding: 60px 20px; color: var(--grey-500); }
+  .empty-state svg { width: 52px; height: 52px; color: var(--grey-300); margin-bottom: 14px; }
+  .empty-state h3 { margin: 0 0 6px; font-size: 16px; color: var(--grey-700); }
+  .empty-state p { margin: 0; font-size: 13.5px; }
+  .no-results { text-align: center; padding: 40px 20px; color: var(--grey-500); font-size: 14px; }
+  .section-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; color: var(--grey-500); margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+  .section-label::after { content: ''; flex: 1; height: 1px; background: var(--grey-200); }
+
+  /* ── TOAST ───────────────────────────────────────────── */
+  .toast { position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%) translateY(80px); background: var(--navy); color: var(--white); padding: 11px 22px; border-radius: 24px; font-size: 13.5px; font-weight: 600; box-shadow: var(--shadow-lg); z-index: 500; transition: transform 0.3s ease; white-space: nowrap; }
+  .toast.show { transform: translateX(-50%) translateY(0); }
+
+  /* ── NOTIFICATIONS ───────────────────────────────────── */
+  .notif-container { position: fixed; bottom: 24px; right: 24px; z-index: 400; display: flex; flex-direction: column; gap: 10px; width: 320px; pointer-events: none; }
+  .notif-bubble { display: flex; align-items: flex-start; gap: 12px; padding: 14px 12px 14px 16px; border-radius: 12px; box-shadow: var(--shadow-lg); pointer-events: all; animation: notif-in 0.35s cubic-bezier(0.34,1.56,0.64,1); transition: transform 0.25s ease, opacity 0.25s ease; }
+  .notif-bubble.notif-out { transform: translateX(115%); opacity: 0; }
+  @keyframes notif-in { from { transform: translateX(115%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+  .nb-ending { background: #fffbeb; border: 1.5px solid #fbbf24; color: #92400e; }
+  .nb-ended  { background: #f0f9ff; border: 1.5px solid #7dd3fc; color: #0c4a6e; }
+  .nb-urgent { background: #fff1f2; border: 1.5px solid #fda4af; color: #9f1239; }
+  .notif-icon { font-size: 20px; flex-shrink: 0; line-height: 1; margin-top: 1px; }
+  .notif-content { flex: 1; min-width: 0; }
+  .notif-name { font-size: 13.5px; font-weight: 700; margin-bottom: 2px; }
+  .notif-detail { font-size: 12px; opacity: 0.85; line-height: 1.4; }
+  .notif-close { background: none; border: none; font-size: 18px; cursor: pointer; color: inherit; opacity: 0.45; padding: 0 3px; line-height: 1; flex-shrink: 0; margin-top: -2px; transition: opacity 0.1s; }
+  .notif-close:hover { opacity: 1; }
+
+  footer { text-align: center; font-size: 12px; color: var(--grey-300); margin-top: 40px; }
+
+  @media (max-width: 580px) {
+    .header-inner { padding: 16px; gap: 12px; }
+    .header-text h1 { font-size: 17px; }
+    .year-badge { display: none; }
+    .stats-inner { flex-wrap: wrap; gap: 4px; }
+    .stat-item { flex: calc(50% - 2px); border-right: none; padding: 4px 0; }
+    .card-header { flex-wrap: wrap; }
+    .year-summary { width: 100%; justify-content: flex-end; }
+    .notif-container { right: 12px; left: 12px; width: auto; bottom: 12px; }
+    .radio-group { flex-wrap: wrap; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ── HEADER ──────────────────────────────────────────── -->
+<header class="site-header theme-inst" id="siteHeader">
+  <div class="header-inner">
+    <div class="logo-wrap">
+      <img src="LogoHighPixelated.png.png" alt="Company Logo">
+    </div>
+    <div class="header-text">
+      <h1>Holiday / Off Time Staff Tracker</h1>
+      <p class="subtitle">Canadian All Care College — Staff Time Off Management</p>
+    </div>
+    <div class="year-badge">
+      <div class="year-num" id="currentYear">2026</div>
+      <div class="year-lbl">Active Year</div>
+    </div>
+  </div>
+  <div class="stats-bar">
+    <div class="stats-inner">
+      <div class="stat-item">
+        <div class="stat-num" id="statTotal">0</div>
+        <div class="stat-lbl" id="statTotalLbl">Instructors</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-num" id="statOnVac">0</div>
+        <div class="stat-lbl">On Vacation Now</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-num" id="statUpcoming">0</div>
+        <div class="stat-lbl">Upcoming Vacations</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-num" id="statEntries">0</div>
+        <div class="stat-lbl">Entries This Year</div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- ── STORAGE STATUS ───────────────────────────────────── -->
+<div class="storage-bar sb-info" id="storageBar">
+  <div class="storage-inner">
+    <span class="storage-icon" id="storageIcon">⟳</span>
+    <span class="storage-text" id="storageText">Checking storage…</span>
+    <button class="btn btn-xs btn-ghost" id="storageBtn" style="display:none">Connect File</button>
+  </div>
+</div>
+
+<!-- ── TABS ────────────────────────────────────────────── -->
+<div class="tabs-bar">
+  <div class="tabs-inner">
+    <button class="tab-btn active" data-tab="instructors" id="tabInst">
+      Instructors
+      <span class="tab-count" id="tabCountInst">0</span>
+    </button>
+    <button class="tab-btn" data-tab="employees" id="tabEmp">
+      Office Employees
+      <span class="tab-count" id="tabCountEmp">0</span>
+    </button>
+  </div>
+</div>
+
+<!-- ── MAIN ────────────────────────────────────────────── -->
+<main class="container">
+  <div class="toolbar">
+    <div class="search-wrap">
+      <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <circle cx="11" cy="11" r="8"/><path stroke-linecap="round" d="M21 21l-4.35-4.35"/>
+      </svg>
+      <input type="text" class="search-input" id="searchInput" placeholder="Search by name…" autocomplete="off">
+    </div>
+    <button class="btn btn-primary" id="openAddModal">
+      <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+        <path stroke-linecap="round" d="M12 5v14M5 12h14"/>
+      </svg>
+      Add Vacation / Off Time
+    </button>
+  </div>
+
+  <div class="section-label" id="sectionLabel">All Instructors</div>
+  <div class="card-list" id="cardList"></div>
+  <div class="empty-state" id="emptyState" style="display:none;">
+    <svg fill="none" stroke="currentColor" stroke-width="1.4" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+    </svg>
+    <h3 id="emptyTitle">No instructors yet</h3>
+    <p id="emptyMsg">Click "Add Vacation / Off Time" to log the first entry.</p>
+  </div>
+  <div class="no-results" id="noResults" style="display:none;">No staff match your search.</div>
+
+  <footer>Holiday / Off Time Staff Tracker &nbsp;|&nbsp; Canadian All Care College</footer>
+</main>
+
+<!-- ── MODAL ────────────────────────────────────────────── -->
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal" role="dialog" aria-modal="true">
+    <div class="modal-title">
+      <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+      </svg>
+      Add Holiday / Off Time
+    </div>
+    <div class="form-error" id="formError"></div>
+
+    <div class="field">
+      <label>Staff Category</label>
+      <div class="radio-group">
+        <label class="radio-option"><input type="radio" name="staffCat" value="instructors" id="rCatInst" checked><span class="radio-label">Instructor</span></label>
+        <label class="radio-option"><input type="radio" name="staffCat" value="employees"   id="rCatEmp">          <span class="radio-label">Office Employee</span></label>
+      </div>
+    </div>
+
+    <hr class="form-divider">
+
+    <div class="field">
+      <label for="fName">Name</label>
+      <input type="text" id="fName" placeholder="e.g. Jane Smith" list="nameSuggestions" autocomplete="off">
+      <datalist id="nameSuggestions"></datalist>
+      <p class="field-hint">Type a new name or select an existing staff member.</p>
+    </div>
+    <div class="field">
+      <label for="fStartDate">Start Date</label>
+      <input type="date" id="fStartDate">
+    </div>
+
+    <div class="field">
+      <label>Duration Input Method</label>
+      <div class="radio-group">
+        <label class="radio-option"><input type="radio" name="durationType" value="enddate" id="rEndDate" checked><span class="radio-label">End Date</span></label>
+        <label class="radio-option"><input type="radio" name="durationType" value="weeks"   id="rWeeks">           <span class="radio-label">Weeks</span></label>
+        <label class="radio-option"><input type="radio" name="durationType" value="days"    id="rDays">            <span class="radio-label">Days</span></label>
+      </div>
+    </div>
+
+    <div class="field" id="fEndDateWrap">
+      <label for="fEndDate">End Date <span style="font-weight:400;text-transform:none;letter-spacing:0">(inclusive)</span></label>
+      <input type="date" id="fEndDate">
+    </div>
+    <div class="field field-hidden" id="fWeeksWrap">
+      <label for="fWeeks">Number of Weeks</label>
+      <input type="number" id="fWeeks" min="0.5" step="0.5" placeholder="e.g. 2">
+      <p class="field-hint">0.5 = 3–4 days &nbsp;·&nbsp; 1 = 7 days &nbsp;·&nbsp; 2 = 14 days</p>
+    </div>
+    <div class="field field-hidden" id="fDaysWrap">
+      <label for="fDays">Number of Days</label>
+      <input type="number" id="fDays" min="1" step="1" placeholder="e.g. 5">
+      <p class="field-hint">Starting from the start date above.</p>
+    </div>
+
+    <div class="field">
+      <label for="fNote">Note <span style="font-weight:400;text-transform:none;letter-spacing:0">(optional)</span></label>
+      <textarea id="fNote" placeholder="e.g. Summer vacation, medical leave…"></textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="closeModal">Cancel</button>
+      <button class="btn btn-primary" id="saveVacation">Save Entry</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── TOAST ────────────────────────────────────────────── -->
+<div class="toast" id="toast"></div>
+
+<script>
+(function () {
+  'use strict';
+
+  const STORAGE_KEY = 'holidayTrackerData_v1';
+  const THIS_YEAR   = new Date().getFullYear();
+  const TODAY_STR   = new Date().toISOString().slice(0, 10);
+
+  let data = { instructors: [], employees: [] };
+  let activeTab = 'instructors';
+  const collapseState = {};
+  let pendingFlashId = null;
+
+  function migrate(d) {
+    if (!Array.isArray(d.instructors)) d.instructors = [];
+    if (!Array.isArray(d.employees))   d.employees   = [];
+    return d;
+  }
+
+  // ── localStorage ──────────────────────────────────────
+  function loadFromLocalStorage() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) { const p = JSON.parse(raw); if (p && p.instructors) data = migrate(p); }
+    } catch (e) { console.warn('localStorage read failed', e); }
+  }
+  function saveToLocalStorage() {
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); } catch (e) { console.warn(e); }
+  }
+
+  // ── IndexedDB ──────────────────────────────────────────
+  function idbOpen() {
+    return new Promise((res, rej) => {
+      const req = indexedDB.open('holidayTrackerDB', 1);
+      req.onupgradeneeded = () => req.result.createObjectStore('kv');
+      req.onsuccess = () => res(req.result);
+      req.onerror   = () => rej(req.error);
+    });
+  }
+  async function idbGet(key) {
+    const db = await idbOpen();
+    return new Promise((res, rej) => { const tx = db.transaction('kv','readonly'); const r = tx.objectStore('kv').get(key); r.onsuccess = ()=>res(r.result); r.onerror=()=>rej(r.error); });
+  }
+  async function idbSet(key, val) {
+    const db = await idbOpen();
+    return new Promise((res, rej) => { const tx = db.transaction('kv','readwrite'); tx.objectStore('kv').put(val,key); tx.oncomplete=()=>res(); tx.onerror=()=>rej(tx.error); });
+  }
+
+  // ── File System API ────────────────────────────────────
+  const fsSupported = 'showSaveFilePicker' in window;
+  let fileHandle = null, fileSaveInFlight = false;
+
+  function setStorageStatus(kind, icon, text, btnLabel) {
+    const bar = document.getElementById('storageBar');
+    bar.className = 'storage-bar ' + (kind || 'sb-info');
+    document.getElementById('storageIcon').textContent = icon;
+    document.getElementById('storageText').textContent = text;
+    const btn = document.getElementById('storageBtn');
+    btn.style.display = btnLabel ? 'inline-flex' : 'none';
+    if (btnLabel) btn.textContent = btnLabel;
+  }
+
+  async function readFromFile(handle) {
+    try {
+      const text = await (await handle.getFile()).text();
+      if (!text.trim()) return false;
+      const p = JSON.parse(text);
+      if (p && p.instructors) { data = migrate(p); saveToLocalStorage(); return true; }
+    } catch (e) { console.warn('File read error', e); }
+    return false;
+  }
+
+  async function writeToFile() {
+    if (!fileHandle || fileSaveInFlight) return;
+    fileSaveInFlight = true;
+    try {
+      const w = await fileHandle.createWritable();
+      await w.write(JSON.stringify(data, null, 2));
+      await w.close();
+      const t = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      setStorageStatus('sb-ok', '💾', `Auto-saved to "${fileHandle.name}" — ${t}`);
+    } catch (e) { setStorageStatus('sb-error', '⚠', `Could not write to file. Reconnect?`, 'Reconnect'); }
+    fileSaveInFlight = false;
+  }
+
+  async function saveData() { saveToLocalStorage(); await writeToFile(); }
+
+  async function connectSaveFile() {
+    if (!fsSupported) { alert('Use Chrome or Edge for file saving.'); return; }
+    try {
+      const handle = await window.showSaveFilePicker({
+        suggestedName: 'holiday-tracker-data.json',
+        types: [{ description: 'Tracker Data', accept: { 'application/json': ['.json'] } }]
+      });
+      fileHandle = handle;
+      await idbSet('fileHandle', handle);
+      const loaded = await readFromFile(handle);
+      if (loaded) render(); else await writeToFile();
+      setStorageStatus('sb-ok', '💾', `Saving to "${handle.name}"`);
+    } catch (e) { if (e.name !== 'AbortError') console.error(e); }
+  }
+
+  async function initFileConnection() {
+    if (!fsSupported) { setStorageStatus('sb-warn', '⚠', 'Browser storage only (use Chrome/Edge for file saving).'); return; }
+    try {
+      const handle = await idbGet('fileHandle');
+      if (!handle) { setStorageStatus('sb-warn', '📂', 'Browser storage only. Connect a file for persistent disk backup.', 'Connect Save File'); return; }
+      fileHandle = handle;
+      const perm = await handle.queryPermission({ mode: 'readwrite' });
+      if (perm === 'granted') {
+        const loaded = await readFromFile(handle);
+        if (loaded) render();
+        setStorageStatus('sb-ok', '💾', `Auto-saving to "${handle.name}"`);
+      } else {
+        setStorageStatus('sb-warn', '🔒', `Save file "${handle.name}" needs permission.`, 'Reconnect');
+      }
+    } catch (e) { setStorageStatus('sb-warn', '📂', 'Browser storage only. Connect a file for backup.', 'Connect Save File'); }
+  }
+
+  document.getElementById('storageBtn').addEventListener('click', async () => {
+    if (fileHandle) {
+      try {
+        const perm = await fileHandle.requestPermission({ mode: 'readwrite' });
+        if (perm === 'granted') { const loaded = await readFromFile(fileHandle); if (loaded) render(); else await writeToFile(); setStorageStatus('sb-ok','💾',`Auto-saving to "${fileHandle.name}"`); return; }
+      } catch (e) { console.warn(e); }
+    }
+    connectSaveFile();
+  });
+
+  // ── Helpers ────────────────────────────────────────────
+  function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
+
+  function calcDuration(s, e) {
+    const total = Math.round((new Date(e+'T00:00:00') - new Date(s+'T00:00:00')) / 86400000) + 1;
+    if (total < 1) return null;
+    return { totalDays: total, weeks: Math.floor(total/7), remDays: total%7, hours: total*8 };
+  }
+  function weeksToEndDate(s, w) { const d = new Date(s+'T00:00:00'); d.setDate(d.getDate() + Math.round(w*7) - 1); return d.toISOString().slice(0,10); }
+  function daysToEndDate(s, n)  { const d = new Date(s+'T00:00:00'); d.setDate(d.getDate() + n - 1); return d.toISOString().slice(0,10); }
+
+  function daysInYear(s, e, year) {
+    const start = new Date(Math.max(new Date(s+'T00:00:00'), new Date(year,0,1)));
+    const end   = new Date(Math.min(new Date(e+'T00:00:00'), new Date(year,11,31)));
+    if (end < start) return 0;
+    return Math.round((end - start) / 86400000) + 1;
+  }
+  function fmtDur(dur) {
+    if (!dur) return '—';
+    const p = [];
+    if (dur.weeks   > 0) p.push(dur.weeks   + ' wk'  + (dur.weeks   !== 1 ? 's' : ''));
+    if (dur.remDays > 0) p.push(dur.remDays + ' day' + (dur.remDays !== 1 ? 's' : ''));
+    if (!p.length) p.push(dur.totalDays + ' day' + (dur.totalDays !== 1 ? 's' : ''));
+    return p.join(' ');
+  }
+  function fmtDate(str) {
+    const [y,m,d] = str.split('-');
+    return ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][+m-1]+' '+(+d)+', '+y;
+  }
+  function fmtRange(s, e) { return fmtDate(s) + ' – ' + fmtDate(e); }
+  function initials(name) { return name.trim().split(/\s+/).map(w=>w[0].toUpperCase()).slice(0,2).join(''); }
+  function isActiveToday(s, e) { return s <= TODAY_STR && TODAY_STR <= e; }
+  function escHtml(str) { const d = document.createElement('div'); d.textContent = str; return d.innerHTML; }
+
+  function yearTotals(person, year) {
+    let days = 0, count = 0;
+    person.vacations.forEach(v => { const d = daysInYear(v.startDate, v.endDate, year); if (d>0){days+=d;count++;} });
+    return { totalDays: days, weeks: Math.floor(days/7), remDays: days%7, hours: days*8, count };
+  }
+
+  // ── Mini Calendar ──────────────────────────────────────
+  function buildVacDateSet(vacations) {
+    const set = new Set();
+    vacations.forEach(v => {
+      let d = new Date(v.startDate+'T00:00:00');
+      const end = new Date(v.endDate+'T00:00:00');
+      while (d <= end) { set.add(d.toISOString().slice(0,10)); d.setDate(d.getDate()+1); }
+    });
+    return set;
+  }
+
+  function renderMonth(year, month, vacDates) {
+    const MN  = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+    const DH  = ['Su','Mo','Tu','We','Th','Fr','Sa'];
+    const fdow = new Date(year, month, 1).getDay();
+    const last = new Date(year, month+1, 0).getDate();
+    let cells  = '';
+    for (let i=0;i<fdow;i++) cells += `<div class="cal-cell"></div>`;
+    for (let d=1;d<=last;d++) {
+      const ds = `${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+      const isV = vacDates.has(ds), isT = ds===TODAY_STR, dow=(fdow+d-1)%7, isW=dow===0||dow===6;
+      let vc='';
+      if (isV) {
+        const prev=new Date(ds+'T00:00:00'); prev.setDate(prev.getDate()-1);
+        const next=new Date(ds+'T00:00:00'); next.setDate(next.getDate()+1);
+        const hp=vacDates.has(prev.toISOString().slice(0,10)), hn=vacDates.has(next.toISOString().slice(0,10));
+        vc=!hp&&!hn?'cal-vac':!hp?'cal-vac cal-vac-start':!hn?'cal-vac cal-vac-end':'cal-vac cal-vac-mid';
+      }
+      cells += `<div class="${['cal-cell',vc,isT?'cal-today':'',isW&&!isV?'cal-weekend':''].filter(Boolean).join(' ')}">${d}</div>`;
+    }
+    return `<div class="cal-month"><div class="cal-month-name">${MN[month]} ${year}</div><div class="cal-grid">${DH.map(h=>`<div class="cal-dh">${h}</div>`).join('')}${cells}</div></div>`;
+  }
+
+  function renderMiniCalendar(person) {
+    if (!person.vacations.length) return '';
+    const vacDates = buildVacDateSet(person.vacations);
+    const allDates = person.vacations.flatMap(v=>[v.startDate,v.endDate]).sort();
+    const first = new Date(allDates[0]+'T00:00:00'), last = new Date(allDates[allDates.length-1]+'T00:00:00');
+    const months=[], cur=new Date(first.getFullYear(), first.getMonth(), 1), lim=new Date(last.getFullYear(), last.getMonth(), 1);
+    while (cur<=lim && months.length<24) { months.push({y:cur.getFullYear(),m:cur.getMonth()}); cur.setMonth(cur.getMonth()+1); }
+    return `<div class="mini-cal-wrap"><div class="mini-cal-header"><span class="mini-cal-title">Vacation Calendar</span><div class="mini-cal-legend"><span class="legend-dot"><span class="legend-swatch" style="background:var(--orange)"></span>Off time</span><span class="legend-dot"><span class="legend-swatch" style="background:var(--navy);border-radius:50%"></span>Today</span></div></div><div class="mini-cal-scroll">${months.map(({y,m})=>renderMonth(y,m,vacDates)).join('')}</div></div>`;
+  }
+
+  // ── Countdown Helpers ──────────────────────────────────
+  function renderCountdownBadge(person) {
+    const today = new Date(TODAY_STR+'T00:00:00');
+    const active = person.vacations.find(v => isActiveToday(v.startDate, v.endDate));
+    if (active) {
+      const days = Math.round((new Date(active.endDate+'T00:00:00') - today) / 86400000);
+      const main = days===0?'Ends today':days===1?'Ends tomorrow':`Ends in ${days} days`;
+      return `<div class="hdr-countdown hdr-cd-active"><div class="hdc-icon">🏖</div><div class="hdc-text"><div class="hdc-main">${main}</div><div class="hdc-sub">${fmtDate(active.endDate)}</div></div><div class="hdc-right"><div class="hdc-num" style="color:var(--orange)">${days===0?'—':days}</div><div class="hdc-unit">${days<=1?(days===0?'today':'day'):'days'}</div></div></div>`;
+    }
+    const upcoming = person.vacations.filter(v=>v.startDate>TODAY_STR).sort((a,b)=>a.startDate.localeCompare(b.startDate))[0];
+    if (!upcoming) return '';
+    const days = Math.round((new Date(upcoming.startDate+'T00:00:00') - today) / 86400000);
+    const main = days===1?'Starts tomorrow':`Starts in ${days} days`;
+    return `<div class="hdr-countdown hdr-cd-upcoming"><div class="hdc-icon">📅</div><div class="hdc-text"><div class="hdc-main">${main}</div><div class="hdc-sub">${fmtDate(upcoming.startDate)}</div></div><div class="hdc-right"><div class="hdc-num" style="color:var(--navy-mid)">${days}</div><div class="hdc-unit">${days===1?'day':'days'}</div></div></div>`;
+  }
+
+  function renderCountdown(person) {
+    const today = new Date(TODAY_STR+'T00:00:00');
+    const active = person.vacations.find(v => isActiveToday(v.startDate, v.endDate));
+    if (active) {
+      const days = Math.round((new Date(active.endDate+'T00:00:00') - today) / 86400000);
+      const line = days===0?'Vacation ends today':days===1?'Vacation ends tomorrow':`Vacation ends in ${days} days`;
+      return `<div class="vac-countdown vac-countdown-active"><div class="vcd-icon">🏖</div><div class="vcd-left"><div class="vcd-label">Currently on Vacation</div><div class="vcd-line1">${escHtml(line)}</div><div class="vcd-line2">Return date: ${fmtDate(active.endDate)}</div></div><div class="vcd-right"><div class="vcd-count" style="color:var(--orange)">${days===0?'—':days}</div><div class="vcd-unit">${days<=1?(days===0?'today':'day'):'days'}</div></div></div>`;
+    }
+    const upcoming = person.vacations.filter(v=>v.startDate>TODAY_STR).sort((a,b)=>a.startDate.localeCompare(b.startDate))[0];
+    if (!upcoming) return '';
+    const days = Math.round((new Date(upcoming.startDate+'T00:00:00') - today) / 86400000);
+    const line = days===1?'Vacation starts tomorrow':`Vacation starts in ${days} days`;
+    return `<div class="vac-countdown vac-countdown-upcoming"><div class="vcd-icon">📅</div><div class="vcd-left"><div class="vcd-label">Next Vacation</div><div class="vcd-line1">${escHtml(line)}</div><div class="vcd-line2">Start date: ${fmtDate(upcoming.startDate)}</div></div><div class="vcd-right"><div class="vcd-count" style="color:var(--navy-mid)">${days}</div><div class="vcd-unit">${days===1?'day':'days'}</div></div></div>`;
+  }
+
+  // ── Stats & Tabs ───────────────────────────────────────
+  function updateStats() {
+    const people = data[activeTab] || [];
+    const onVacNow  = people.filter(p => p.vacations.some(v => isActiveToday(v.startDate, v.endDate))).length;
+    const upcoming  = people.filter(p => p.vacations.some(v => v.startDate > TODAY_STR)).length;
+    const entries   = people.reduce((s,p) => s + yearTotals(p, THIS_YEAR).count, 0);
+    document.getElementById('statTotal').textContent    = people.length;
+    document.getElementById('statOnVac').textContent    = onVacNow;
+    document.getElementById('statUpcoming').textContent = upcoming;
+    document.getElementById('statEntries').textContent  = entries;
+    document.getElementById('statTotalLbl').textContent = activeTab === 'instructors' ? 'Instructors' : 'Office Employees';
+  }
+
+  function updateTabCounts() {
+    document.getElementById('tabCountInst').textContent = data.instructors.length;
+    document.getElementById('tabCountEmp').textContent  = data.employees.length;
+  }
+
+  function switchTab(tab) {
+    activeTab = tab;
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+    const hdr = document.getElementById('siteHeader');
+    hdr.classList.toggle('theme-inst', tab === 'instructors');
+    hdr.classList.toggle('theme-emp',  tab === 'employees');
+    const label = tab === 'instructors' ? 'Instructors' : 'Office Employees';
+    document.getElementById('sectionLabel').textContent = 'All ' + label;
+    document.getElementById('emptyTitle').textContent   = 'No ' + label.toLowerCase() + ' yet';
+    document.getElementById('emptyMsg').textContent     = 'Click "Add Vacation / Off Time" to log the first entry.';
+    render();
+  }
+
+  // ── Render ─────────────────────────────────────────────
+  function render() {
+    updateStats();
+    updateTabCounts();
+
+    const query    = document.getElementById('searchInput').value.trim().toLowerCase();
+    const people   = data[activeTab] || [];
+    const sorted   = [...people].sort((a,b) => a.name.localeCompare(b.name));
+    const filtered = query ? sorted.filter(p => p.name.toLowerCase().includes(query)) : sorted;
+
+    const cardList   = document.getElementById('cardList');
+    const emptyState = document.getElementById('emptyState');
+    const noResults  = document.getElementById('noResults');
+
+    if (people.length === 0) { cardList.innerHTML=''; emptyState.style.display='block'; noResults.style.display='none'; return; }
+    emptyState.style.display = 'none';
+    if (filtered.length === 0) { cardList.innerHTML=''; noResults.style.display='block'; return; }
+    noResults.style.display = 'none';
+
+    cardList.innerHTML = filtered.map(p => renderCard(p)).join('');
+
+    if (pendingFlashId) {
+      const el = document.querySelector(`[data-inst-id="${pendingFlashId}"]`);
+      if (el) { el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash'); }
+      pendingFlashId = null;
+    }
+
+    // Rebuild datalist from both groups
+    const all = [...data.instructors, ...data.employees];
+    document.getElementById('nameSuggestions').innerHTML = all.map(p=>`<option value="${escHtml(p.name)}">`).join('');
+  }
+
+  function renderCard(person) {
+    const totals     = yearTotals(person, THIS_YEAR);
+    const isCollapsed = !!collapseState[person.id];
+    const onVacNow   = person.vacations.some(v => isActiveToday(v.startDate, v.endDate));
+    const durStr     = fmtDur({ weeks: totals.weeks, remDays: totals.remDays, totalDays: totals.totalDays });
+    const allDays    = person.vacations.reduce((s,v)=>{ const d=calcDuration(v.startDate,v.endDate); return s+(d?d.totalDays:0); },0);
+    const cardType   = activeTab === 'instructors' ? 'card-inst' : 'card-emp';
+    const addBtnCls  = activeTab === 'instructors' ? 'btn-navy'  : 'btn-primary';
+
+    const vacsSorted = [...person.vacations].sort((a,b) => b.startDate.localeCompare(a.startDate));
+    const vacsHtml   = vacsSorted.length === 0
+      ? `<p class="no-vacations">No vacation entries yet.</p>`
+      : vacsSorted.map(v => {
+          const dur    = calcDuration(v.startDate, v.endDate);
+          const active = isActiveToday(v.startDate, v.endDate);
+          return `
+          <div class="vac-item" data-vac-id="${v.id}">
+            <div class="vac-icon${active?' vac-icon-active':''}">
+              <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+            </div>
+            <div class="vac-dates">
+              <p class="vac-date-range">${escHtml(fmtRange(v.startDate, v.endDate))}</p>
+              ${v.note ? `<p class="vac-note">${escHtml(v.note)}</p>` : ''}
+            </div>
+            <div class="vac-duration">
+              ${active ? `<div style="margin-bottom:4px"><span class="vac-active-tag">● On Vacation Now</span></div>` : ''}
+              <div class="vac-dur-main">${dur ? escHtml(fmtDur(dur)) : '—'}</div>
+              ${dur ? `<div class="vac-dur-sub">${dur.totalDays} days · ${dur.hours} hrs</div>` : ''}
+            </div>
+            <button class="vac-del-btn" data-action="del-vac" title="Delete entry">
+              <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+          </div>`;
+        }).join('');
+
+    return `
+    <div class="instructor-card ${cardType}${isCollapsed?' card-collapsed':''}" data-inst-id="${person.id}">
+      <div class="card-header" data-action="toggle-card">
+        <div class="avatar-wrap">
+          <div class="instructor-avatar">${escHtml(initials(person.name))}</div>
+          ${onVacNow ? `<div class="on-vacation-dot"></div>` : ''}
+        </div>
+        <div class="card-info">
+          <p class="card-name">${escHtml(person.name)}</p>
+          <p class="card-meta">${totals.count} entr${totals.count===1?'y':'ies'} in ${THIS_YEAR} · ${person.vacations.length} total</p>
+        </div>
+        ${renderCountdownBadge(person)}
+        <div class="year-summary">
+          <div class="year-pill">
+            <div class="pill-top">${totals.totalDays>0?escHtml(durStr):'—'}</div>
+            ${totals.totalDays>0?`<div class="pill-sub">${totals.totalDays} days · ${totals.hours} hrs</div>`:''}
+            <div class="pill-bot">${THIS_YEAR} off time</div>
+          </div>
+          <svg class="chevron" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+        </div>
+      </div>
+      <div class="card-body">
+        ${renderMiniCalendar(person)}
+        ${renderCountdown(person)}
+        <div class="vacation-list">${vacsHtml}</div>
+        <div class="card-footer">
+          <span class="card-footer-stats">
+            ${THIS_YEAR}: <strong>${totals.totalDays} days / ${totals.hours} hrs</strong>
+            ${allDays!==totals.totalDays?`&nbsp;·&nbsp; All-time: <strong>${allDays} days / ${allDays*8} hrs</strong>`:''}
+          </span>
+          <button class="btn btn-sm ${addBtnCls}" data-action="add-vac-for" data-name="${escHtml(person.name)}">
+            <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" d="M12 5v14M5 12h14"/></svg>
+            Add Vacation
+          </button>
+        </div>
+      </div>
+    </div>`;
+  }
+
+  // ── Card Event Delegation ──────────────────────────────
+  document.getElementById('cardList').addEventListener('click', function(e) {
+    const card = e.target.closest('.instructor-card');
+    if (!card) return;
+    const personId = card.dataset.instId;
+    const person   = (data[activeTab] || []).find(p => p.id === personId);
+    if (!person) return;
+    const actionEl = e.target.closest('[data-action]');
+    if (!actionEl) return;
+    const action = actionEl.dataset.action;
+
+    if (action === 'toggle-card') {
+      collapseState[personId] = !collapseState[personId];
+      card.classList.toggle('card-collapsed', !!collapseState[personId]);
+      return;
+    }
+    if (action === 'del-vac') {
+      e.stopPropagation();
+      const vacEl = e.target.closest('.vac-item');
+      if (!vacEl) return;
+      const vac = person.vacations.find(v => v.id === vacEl.dataset.vacId);
+      if (!vac) return;
+      if (!confirm(`Delete vacation ${fmtRange(vac.startDate, vac.endDate)} for ${person.name}?`)) return;
+      person.vacations = person.vacations.filter(v => v.id !== vac.id);
+      if (!person.vacations.length) {
+        data[activeTab] = data[activeTab].filter(p => p.id !== personId);
+        delete collapseState[personId];
+        showToast(`Removed ${person.name} — no remaining entries.`);
+      } else { showToast('Vacation entry deleted.'); }
+      saveData(); render(); return;
+    }
+    if (action === 'add-vac-for') {
+      e.stopPropagation();
+      openModal(actionEl.dataset.name || '', activeTab);
+    }
+  });
+
+  // ── Tab Buttons ────────────────────────────────────────
+  document.querySelectorAll('.tab-btn').forEach(btn => btn.addEventListener('click', () => switchTab(btn.dataset.tab)));
+
+  // ── Search ─────────────────────────────────────────────
+  document.getElementById('searchInput').addEventListener('input', render);
+
+  // ── Modal ──────────────────────────────────────────────
+  const overlay   = document.getElementById('modalOverlay');
+  const fName     = document.getElementById('fName');
+  const fStart    = document.getElementById('fStartDate');
+  const fEnd      = document.getElementById('fEndDate');
+  const fWeeks    = document.getElementById('fWeeks');
+  const fDays     = document.getElementById('fDays');
+  const fNote     = document.getElementById('fNote');
+  const formError = document.getElementById('formError');
+  const rEndDate  = document.getElementById('rEndDate');
+  const rWeeks    = document.getElementById('rWeeks');
+  const rDays     = document.getElementById('rDays');
+  const rCatInst  = document.getElementById('rCatInst');
+  const rCatEmp   = document.getElementById('rCatEmp');
+  const fEndWrap  = document.getElementById('fEndDateWrap');
+  const fWksWrap  = document.getElementById('fWeeksWrap');
+  const fDaysWrap = document.getElementById('fDaysWrap');
+
+  function openModal(prefill, catOverride) {
+    fName.value  = prefill || '';
+    fStart.value = ''; fEnd.value = ''; fWeeks.value = ''; fDays.value = ''; fNote.value = '';
+    rEndDate.checked = true;
+    fEndWrap.classList.remove('field-hidden'); fWksWrap.classList.add('field-hidden'); fDaysWrap.classList.add('field-hidden');
+    const cat = catOverride || activeTab;
+    rCatInst.checked = cat === 'instructors';
+    rCatEmp.checked  = cat === 'employees';
+    formError.classList.remove('show');
+    overlay.classList.add('open');
+    setTimeout(() => (prefill ? fStart : fName).focus(), 50);
+    const all = [...data.instructors, ...data.employees];
+    document.getElementById('nameSuggestions').innerHTML = all.map(p=>`<option value="${escHtml(p.name)}">`).join('');
+  }
+  function closeModal() { overlay.classList.remove('open'); }
+
+  document.getElementById('openAddModal').addEventListener('click', () => openModal(''));
+  document.getElementById('closeModal').addEventListener('click', closeModal);
+  overlay.addEventListener('click', e => { if (e.target===overlay) closeModal(); });
+  document.addEventListener('keydown', e => { if (e.key==='Escape') closeModal(); });
+
+  [rEndDate, rWeeks, rDays].forEach(r => r.addEventListener('change', () => {
+    fEndWrap.classList.toggle('field-hidden',  !rEndDate.checked);
+    fWksWrap.classList.toggle('field-hidden',  !rWeeks.checked);
+    fDaysWrap.classList.toggle('field-hidden', !rDays.checked);
+  }));
+
+  document.getElementById('saveVacation').addEventListener('click', async () => {
+    formError.classList.remove('show');
+    const name      = fName.value.trim();
+    const startDate = fStart.value;
+    const note      = fNote.value.trim();
+    const targetKey = rCatInst.checked ? 'instructors' : 'employees';
+    let endDate;
+
+    if (!name)      { showErr('Please enter a name.');       fName.focus();  return; }
+    if (!startDate) { showErr('Please select a start date.'); fStart.focus(); return; }
+
+    if (rEndDate.checked) {
+      endDate = fEnd.value;
+      if (!endDate)            { showErr('Please select an end date.');                   fEnd.focus();   return; }
+      if (endDate < startDate) { showErr('End date must be on or after the start date.'); fEnd.focus();   return; }
+    } else if (rWeeks.checked) {
+      const w = parseFloat(fWeeks.value);
+      if (isNaN(w)||w<=0)      { showErr('Please enter a valid number of weeks.');        fWeeks.focus(); return; }
+      endDate = weeksToEndDate(startDate, w);
+    } else {
+      const n = parseInt(fDays.value);
+      if (isNaN(n)||n<1)       { showErr('Please enter a valid number of days.');         fDays.focus();  return; }
+      endDate = daysToEndDate(startDate, n);
+    }
+
+    const dur = calcDuration(startDate, endDate);
+    if (!dur||dur.totalDays<1) { showErr('Duration must be at least 1 day.'); return; }
+
+    let person = data[targetKey].find(p => p.name.toLowerCase() === name.toLowerCase());
+    if (!person) { person = { id: uid(), name, vacations: [] }; data[targetKey].push(person); }
+    person.vacations.push({ id: uid(), startDate, endDate, note, createdAt: Date.now() });
+    pendingFlashId = person.id;
+
+    // Switch to the saved tab so user can see the result
+    if (targetKey !== activeTab) switchTab(targetKey);
+
+    await saveData(); closeModal(); render();
+    showToast(`Saved: ${fmtDur(dur)} off for ${name}.`);
+  });
+
+  function showErr(msg) { formError.textContent = msg; formError.classList.add('show'); }
+
+  // ── Toast ──────────────────────────────────────────────
+  let toastTimer;
+  function showToast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg; t.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => t.classList.remove('show'), 2800);
+  }
+
+  // ── Notifications (checks both groups) ────────────────
+  function checkNotifications() {
+    const today = new Date(TODAY_STR+'T00:00:00');
+    const dismissed = new Set(JSON.parse(sessionStorage.getItem('dismissedNotifs')||'[]'));
+    const notifs = [];
+
+    [...data.instructors, ...data.employees].forEach(person => {
+      person.vacations.forEach(v => {
+        const dU = Math.round((new Date(v.endDate+'T00:00:00') - today) / 86400000);
+        if (dU>=0&&dU<=3) { const id=`ending-${v.id}`; if (!dismissed.has(id)) notifs.push({id,type:'ending',name:person.name,v,dU}); }
+        if (dU<0&&dU>=-3) { const id=`ended-${v.id}`;  if (!dismissed.has(id)) notifs.push({id,type:'ended', name:person.name,v,dA:-dU}); }
+      });
+    });
+
+    if (!notifs.length) return;
+    const container = document.createElement('div');
+    container.id = 'notifContainer'; container.className = 'notif-container';
+
+    notifs.forEach((n, idx) => {
+      const el = document.createElement('div');
+      let cls, icon, line1;
+      if (n.type==='ending') {
+        cls  = n.dU===0?'nb-urgent':'nb-ending';
+        icon = n.dU===0?'🔴':'⚠️';
+        line1 = n.dU===0?'Ends today':n.dU===1?'Ends tomorrow':`Ends in ${n.dU} days`;
+      } else {
+        cls  = 'nb-ended'; icon = '✅';
+        line1 = n.dA===1?'Ended yesterday':`Ended ${n.dA} days ago`;
+      }
+      el.className = `notif-bubble ${cls}`;
+      el.dataset.notifId = n.id;
+      el.style.animationDelay = `${idx*80}ms`;
+      el.innerHTML = `<div class="notif-icon">${icon}</div><div class="notif-content"><div class="notif-name">${escHtml(n.name)}</div><div class="notif-detail">${escHtml(line1)}</div><div class="notif-detail" style="margin-top:2px;opacity:0.65">${escHtml(fmtRange(n.v.startDate,n.v.endDate))}</div></div><button class="notif-close" title="Dismiss">×</button>`;
+      container.appendChild(el);
+    });
+
+    document.body.appendChild(container);
+    container.addEventListener('click', e => {
+      const btn = e.target.closest('.notif-close');
+      if (!btn) return;
+      const bubble = btn.closest('.notif-bubble');
+      const nid    = bubble.dataset.notifId;
+      bubble.classList.add('notif-out');
+      setTimeout(() => { bubble.remove(); if (!container.children.length) container.remove(); }, 280);
+      const arr = JSON.parse(sessionStorage.getItem('dismissedNotifs')||'[]');
+      arr.push(nid); sessionStorage.setItem('dismissedNotifs', JSON.stringify(arr));
+    });
+  }
+
+  // ── Init ───────────────────────────────────────────────
+  document.getElementById('currentYear').textContent = THIS_YEAR;
+  fWksWrap.classList.add('field-hidden');
+  fDaysWrap.classList.add('field-hidden');
+  loadFromLocalStorage();
+  render();
+  checkNotifications();
+  initFileConnection();
+})();
+</script>
+</body>
+</html>

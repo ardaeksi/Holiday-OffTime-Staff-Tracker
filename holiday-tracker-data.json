@@ -1,0 +1,294 @@
+{
+  "instructors": [
+    {
+      "id": "inst_sarah_mitchell",
+      "name": "Sarah Mitchell",
+      "vacations": [
+        {
+          "id": "vac_sm_01",
+          "startDate": "2026-01-15",
+          "endDate": "2026-01-26",
+          "note": "New Year extended break",
+          "createdAt": 1767830400000
+        },
+        {
+          "id": "vac_sm_02",
+          "startDate": "2026-03-20",
+          "endDate": "2026-03-27",
+          "note": "Spring break",
+          "createdAt": 1773360000000
+        },
+        {
+          "id": "vac_sm_03",
+          "startDate": "2026-06-28",
+          "endDate": "2026-07-05",
+          "note": "Summer vacation",
+          "createdAt": 1781481600000
+        }
+      ]
+    },
+    {
+      "id": "inst_james_chen",
+      "name": "James Chen",
+      "vacations": [
+        {
+          "id": "vac_jc_01",
+          "startDate": "2026-02-10",
+          "endDate": "2026-02-17",
+          "note": "Family trip to Vancouver",
+          "createdAt": 1770076800000
+        },
+        {
+          "id": "vac_jc_02",
+          "startDate": "2026-04-13",
+          "endDate": "2026-04-17",
+          "note": "Easter long weekend",
+          "createdAt": 1775520000000
+        },
+        {
+          "id": "vac_jc_03",
+          "startDate": "2026-06-22",
+          "endDate": "2026-07-01",
+          "note": "Camping trip — Algonquin Park",
+          "createdAt": 1781049600000
+        },
+        {
+          "id": "vac_jc_04",
+          "startDate": "2026-08-17",
+          "endDate": "2026-08-28",
+          "note": "Europe trip — France & Italy",
+          "createdAt": 1781913600000
+        }
+      ]
+    },
+    {
+      "id": "inst_maria_rodriguez",
+      "name": "Maria Rodriguez",
+      "vacations": [
+        {
+          "id": "vac_mr_01",
+          "startDate": "2026-03-01",
+          "endDate": "2026-03-07",
+          "note": "March Break",
+          "createdAt": 1772496000000
+        },
+        {
+          "id": "vac_mr_02",
+          "startDate": "2026-06-19",
+          "endDate": "2026-07-02",
+          "note": "Summer break — Cancun trip",
+          "createdAt": 1749254400000
+        }
+      ]
+    },
+    {
+      "id": "inst_david_thompson",
+      "name": "David Thompson",
+      "vacations": [
+        {
+          "id": "vac_dt_01",
+          "startDate": "2026-01-02",
+          "endDate": "2026-01-22",
+          "note": "Extended winter holidays",
+          "createdAt": 1767312000000
+        },
+        {
+          "id": "vac_dt_02",
+          "startDate": "2026-07-10",
+          "endDate": "2026-07-24",
+          "note": "Summer road trip — Maritime provinces",
+          "createdAt": 1750118400000
+        }
+      ]
+    },
+    {
+      "id": "inst_emily_parker",
+      "name": "Emily Parker",
+      "vacations": [
+        {
+          "id": "vac_ep_01",
+          "startDate": "2025-07-14",
+          "endDate": "2025-07-25",
+          "note": "Summer vacation 2025",
+          "createdAt": 1752278400000
+        },
+        {
+          "id": "vac_ep_02",
+          "startDate": "2026-02-16",
+          "endDate": "2026-02-20",
+          "note": "Reading week",
+          "createdAt": 1739145600000
+        },
+        {
+          "id": "vac_ep_03",
+          "startDate": "2026-05-18",
+          "endDate": "2026-05-22",
+          "note": "Long weekend extended",
+          "createdAt": 1746316800000
+        },
+        {
+          "id": "vac_ep_04",
+          "startDate": "2026-06-15",
+          "endDate": "2026-06-19",
+          "note": "Pre-summer break",
+          "createdAt": 1748736000000
+        }
+      ]
+    },
+    {
+      "id": "inst_robert_wilson",
+      "name": "Robert Wilson",
+      "vacations": [
+        {
+          "id": "vac_rw_01",
+          "startDate": "2025-12-20",
+          "endDate": "2026-01-05",
+          "note": "Christmas & New Year holidays",
+          "createdAt": 1763164800000
+        },
+        {
+          "id": "vac_rw_02",
+          "startDate": "2026-09-07",
+          "endDate": "2026-09-18",
+          "note": "Fall cottage week",
+          "createdAt": 1750636800000
+        }
+      ]
+    },
+    {
+      "id": "inst_jennifer_lee",
+      "name": "Jennifer Lee",
+      "vacations": [
+        {
+          "id": "vac_jl_01",
+          "startDate": "2026-03-13",
+          "endDate": "2026-03-20",
+          "note": "March Break — ski trip in Collingwood",
+          "createdAt": 1741132800000
+        },
+        {
+          "id": "vac_jl_02",
+          "startDate": "2026-06-29",
+          "endDate": "2026-07-04",
+          "note": "Canada Day long weekend",
+          "createdAt": 1749340800000
+        }
+      ]
+    },
+    {
+      "id": "inst_michael_brown",
+      "name": "Michael Brown",
+      "vacations": [
+        {
+          "id": "vac_mb_01",
+          "startDate": "2026-01-26",
+          "endDate": "2026-02-06",
+          "note": "Winter break — Caribbean cruise",
+          "createdAt": 1737417600000
+        },
+        {
+          "id": "vac_mb_02",
+          "startDate": "2026-07-03",
+          "endDate": "2026-07-10",
+          "note": "Canada Day extended vacation",
+          "createdAt": 1750550400000
+        }
+      ]
+    }
+  ],
+  "employees": [
+    {
+      "id": "emp_linda_nguyen",
+      "name": "Linda Nguyen",
+      "vacations": [
+        {
+          "id": "vac_ln_01",
+          "startDate": "2026-01-05",
+          "endDate": "2026-01-09",
+          "note": "Post-holiday recovery week",
+          "createdAt": 1767744000000
+        },
+        {
+          "id": "vac_ln_02",
+          "startDate": "2026-07-06",
+          "endDate": "2026-07-17",
+          "note": "Family summer vacation — Niagara",
+          "createdAt": 1751500800000
+        }
+      ]
+    },
+    {
+      "id": "emp_carlos_santos",
+      "name": "Carlos Santos",
+      "vacations": [
+        {
+          "id": "vac_cs_01",
+          "startDate": "2026-03-16",
+          "endDate": "2026-03-20",
+          "note": "Spring break trip",
+          "createdAt": 1773043200000
+        },
+        {
+          "id": "vac_cs_02",
+          "startDate": "2026-06-29",
+          "endDate": "2026-07-03",
+          "note": "Canada Day long weekend",
+          "createdAt": 1749254400000
+        }
+      ]
+    },
+    {
+      "id": "emp_patricia_obi",
+      "name": "Patricia Obi",
+      "vacations": [
+        {
+          "id": "vac_po_01",
+          "startDate": "2025-12-22",
+          "endDate": "2026-01-02",
+          "note": "Christmas holidays",
+          "createdAt": 1763251200000
+        },
+        {
+          "id": "vac_po_02",
+          "startDate": "2026-08-03",
+          "endDate": "2026-08-14",
+          "note": "Summer vacation — cottage country",
+          "createdAt": 1750204800000
+        }
+      ]
+    },
+    {
+      "id": "emp_derek_hoffman",
+      "name": "Derek Hoffman",
+      "vacations": [
+        {
+          "id": "vac_dh_01",
+          "startDate": "2026-06-22",
+          "endDate": "2026-07-02",
+          "note": "Pre-Canada Day getaway",
+          "createdAt": 1749340800000
+        }
+      ]
+    },
+    {
+      "id": "emp_fatima_al_rashid",
+      "name": "Fatima Al-Rashid",
+      "vacations": [
+        {
+          "id": "vac_fa_01",
+          "startDate": "2026-04-06",
+          "endDate": "2026-04-10",
+          "note": "Eid al-Fitr",
+          "createdAt": 1775174400000
+        },
+        {
+          "id": "vac_fa_02",
+          "startDate": "2026-07-20",
+          "endDate": "2026-07-31",
+          "note": "Family trip — Morocco",
+          "createdAt": 1750809600000
+        }
+      ]
+    }
+  ]
+}
