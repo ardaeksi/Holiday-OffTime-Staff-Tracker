@@ -2,7 +2,7 @@
 **Canadian All Care College — Internal Tool**
 
 A single-page web application for tracking instructor and office employee vacation time. Designed for 2–3 internal users with cloud sync via Cloudflare — no server to manage, always online.
-  
+  a
 ---
 
 ## Features
