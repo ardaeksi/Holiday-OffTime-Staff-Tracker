@@ -541,19 +541,18 @@
     if (!pw) { showLogin(); return; }
     setSyncStatus('idle');
     try {
-      const resp = await fetch('/api/data', { headers: { 'X-App-Password': pw } });
+      // cache:'no-store' forces the browser to always fetch fresh — never serve a stale cached response
+      const resp = await fetch('/api/data', {
+        headers: { 'X-App-Password': pw },
+        cache: 'no-store'
+      });
       if (resp.status === 401) { clearPassword(); showLogin('Wrong password — please sign in again.'); return; }
       if (!resp.ok) throw new Error('HTTP ' + resp.status);
       const json = await resp.json();
-      // If server is empty but we have local data, push local data up to bootstrap
-      if (!json.instructors.length && !json.employees.length &&
-          (data.instructors.length || data.employees.length)) {
-        await saveToServer();
-      } else {
-        data = migrate(json);
-        saveToLocalStorage();
-        render();
-      }
+      // Server is always the source of truth — overwrite local data unconditionally
+      data = migrate(json);
+      saveToLocalStorage();
+      render();
       setSyncStatus('ok', new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
       if (!notifsShown) { checkNotifications(); notifsShown = true; }
       hideLogin();
@@ -1073,9 +1072,13 @@
   } else {
     const storedPw = getStoredPassword();
     if (storedPw) {
-      render(); // instant render from localStorage cache
-      if (!notifsShown) { checkNotifications(); notifsShown = true; }
-      loadFromServer(); // then sync latest from cloud in background
+      // Show a neutral loading state — do NOT render from localStorage first,
+      // because other users may have changed data since our last visit.
+      // Always wait for the server response before showing anything.
+      document.getElementById('cardList').innerHTML =
+        '<div style="text-align:center;padding:60px 20px;color:var(--grey-500);font-size:14px">Syncing with server…</div>';
+      setSyncStatus('idle');
+      loadFromServer();
     } else {
       showLogin();
     }

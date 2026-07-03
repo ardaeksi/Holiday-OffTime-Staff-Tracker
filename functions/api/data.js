@@ -3,7 +3,10 @@ const KV_KEY = 'tracker-data';
 function json(data, status = 200) {
   return new Response(JSON.stringify(data), {
     status,
-    headers: { 'Content-Type': 'application/json' }
+    headers: {
+      'Content-Type': 'application/json',
+      'Cache-Control': 'no-store'  // never let Cloudflare or the browser cache API responses
+    }
   });
 }
 
