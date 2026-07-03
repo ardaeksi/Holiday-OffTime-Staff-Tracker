@@ -17,6 +17,7 @@ A single-page web application for tracking instructor and office employee vacati
 - **Cloud sync** — all users see the same data; changes save to the cloud on every entry
 - **Offline fallback** — if the cloud is unreachable, the app works from the local browser cache and syncs when back online
 - **Color-coded panels** — navy theme for Instructors, green theme for Office Employees
+- **Team Calendar** — section-level calendar at the bottom of each panel showing current month and next month, with color-coded chips per person so you can see at a glance who is off and when
 
 ---
 

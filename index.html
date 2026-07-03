@@ -284,6 +284,26 @@
   .login-btn:hover:not(:disabled) { background: var(--green); }
   .login-btn:disabled { opacity: 0.55; cursor: not-allowed; }
 
+  /* ── SECTION TEAM CALENDAR ──────────────────────────── */
+  .scal-wrap { margin-top: 36px; background: var(--white); border: 1px solid var(--grey-100); border-radius: 12px; padding: 20px 20px 18px; box-shadow: var(--shadow); }
+  .scal-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; color: var(--grey-700); margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+  .scal-title::after { content: ''; flex: 1; height: 1px; background: var(--grey-200); }
+  .scal-legend { display: flex; flex-wrap: wrap; gap: 6px 16px; margin-bottom: 18px; }
+  .scal-legend-item { display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--grey-700); font-weight: 600; }
+  .scal-legend-dot { width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0; }
+  .scal-months { display: flex; gap: 28px; }
+  .scal-month { flex: 1; min-width: 0; }
+  .scal-month-name { font-size: 13px; font-weight: 700; color: var(--navy); text-align: center; margin-bottom: 8px; }
+  .scal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+  .scal-dh { text-align: center; font-size: 9.5px; font-weight: 700; color: var(--grey-500); padding: 3px 0 5px; }
+  .scal-cell { min-height: 46px; padding: 2px 1px; display: flex; flex-direction: column; gap: 1px; border-radius: 4px; }
+  .scal-cell-num { font-size: 10px; font-weight: 600; color: var(--grey-700); text-align: center; line-height: 1.6; }
+  .scal-cell-today .scal-cell-num { background: var(--navy); color: var(--white); border-radius: 50%; width: 17px; height: 17px; font-size: 9.5px; font-weight: 800; display: flex; align-items: center; justify-content: center; margin: 1px auto 0; line-height: 1; }
+  .scal-cell-weekend .scal-cell-num { color: var(--grey-300); }
+  .scal-chip { border-radius: 3px; padding: 0 3px; font-size: 9px; font-weight: 700; color: var(--white); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.55; }
+  .scal-overflow { border-radius: 3px; padding: 0 3px; font-size: 9px; font-weight: 700; color: var(--grey-700); background: var(--grey-100); line-height: 1.55; }
+  @media (max-width: 640px) { .scal-months { flex-direction: column; gap: 20px; } }
+
   @media (max-width: 580px) {
     .header-inner { padding: 16px; gap: 12px; }
     .header-text h1 { font-size: 17px; }
@@ -401,6 +421,8 @@
     <p id="emptyMsg">Click "Add Vacation / Off Time" to log the first entry.</p>
   </div>
   <div class="no-results" id="noResults" style="display:none;">No staff match your search.</div>
+
+  <div id="sectionCal"></div>
 
   <footer>Holiday / Off Time Staff Tracker &nbsp;|&nbsp; Canadian All Care College</footer>
 </main>
@@ -779,9 +801,10 @@
     const emptyState = document.getElementById('emptyState');
     const noResults  = document.getElementById('noResults');
 
-    if (people.length === 0) { cardList.innerHTML=''; emptyState.style.display='block'; noResults.style.display='none'; return; }
+    const secCal = document.getElementById('sectionCal');
+    if (people.length === 0) { cardList.innerHTML=''; emptyState.style.display='block'; noResults.style.display='none'; secCal.innerHTML=''; return; }
     emptyState.style.display = 'none';
-    if (filtered.length === 0) { cardList.innerHTML=''; noResults.style.display='block'; return; }
+    if (filtered.length === 0) { cardList.innerHTML=''; noResults.style.display='block'; secCal.innerHTML = buildSectionCalendar(people); return; }
     noResults.style.display = 'none';
 
     cardList.innerHTML = filtered.map(p => renderCard(p)).join('');
@@ -791,6 +814,8 @@
       if (el) { el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash'); }
       pendingFlashId = null;
     }
+
+    secCal.innerHTML = buildSectionCalendar(people);
 
     // Rebuild datalist from both groups
     const all = [...data.instructors, ...data.employees];
@@ -869,6 +894,65 @@
         </div>
       </div>
     </div>`;
+  }
+
+  // ── Section Team Calendar ─────────────────────────────
+  const PALETTE = ['#3b82f6','#ef4444','#f59e0b','#10b981','#8b5cf6','#ec4899','#06b6d4','#84cc16','#f97316','#6366f1','#14b8a6','#a855f7'];
+
+  function buildSectionCalendar(people) {
+    if (!people.length) return '';
+    const now = new Date();
+    const m1 = { y: now.getFullYear(), m: now.getMonth() };
+    const m2 = { y: now.getMonth() === 11 ? now.getFullYear() + 1 : now.getFullYear(), m: (now.getMonth() + 1) % 12 };
+
+    const peopleColors = people.map((p, i) => ({
+      person: p,
+      color: PALETTE[i % PALETTE.length],
+      firstName: p.name.trim().split(/\s+/)[0]
+    }));
+
+    const vacMap = {};
+    peopleColors.forEach(({ person, color, firstName }) => {
+      person.vacations.forEach(v => {
+        let d = new Date(v.startDate + 'T00:00:00');
+        const end = new Date(v.endDate + 'T00:00:00');
+        while (d <= end) {
+          const ds = d.toISOString().slice(0, 10);
+          if (!vacMap[ds]) vacMap[ds] = [];
+          vacMap[ds].push({ firstName, color });
+          d.setDate(d.getDate() + 1);
+        }
+      });
+    });
+
+    const legend = peopleColors.map(({ person, color }) =>
+      `<div class="scal-legend-item"><div class="scal-legend-dot" style="background:${color}"></div>${escHtml(person.name)}</div>`
+    ).join('');
+
+    return `<div class="scal-wrap"><div class="scal-title">Team Calendar</div><div class="scal-legend">${legend}</div><div class="scal-months">${renderSectionMonth(m1.y, m1.m, vacMap)}${renderSectionMonth(m2.y, m2.m, vacMap)}</div></div>`;
+  }
+
+  function renderSectionMonth(year, month, vacMap) {
+    const MN  = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+    const DH  = ['Su','Mo','Tu','We','Th','Fr','Sa'];
+    const fdow = new Date(year, month, 1).getDay();
+    const last = new Date(year, month + 1, 0).getDate();
+    let cells = '';
+    for (let i = 0; i < fdow; i++) cells += `<div class="scal-cell"></div>`;
+    for (let d = 1; d <= last; d++) {
+      const ds  = `${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+      const isT = ds === TODAY_STR;
+      const dow = (fdow + d - 1) % 7;
+      const isW = dow === 0 || dow === 6;
+      const entries  = vacMap[ds] || [];
+      const visible  = entries.slice(0, 3);
+      const overflow = entries.length - visible.length;
+      const chips    = visible.map(e => `<div class="scal-chip" style="background:${e.color}">${escHtml(e.firstName)}</div>`).join('');
+      const ovfChip  = overflow > 0 ? `<div class="scal-overflow">+${overflow}</div>` : '';
+      const cls = ['scal-cell', isT ? 'scal-cell-today' : '', isW ? 'scal-cell-weekend' : ''].filter(Boolean).join(' ');
+      cells += `<div class="${cls}"><div class="scal-cell-num">${d}</div>${chips}${ovfChip}</div>`;
+    }
+    return `<div class="scal-month"><div class="scal-month-name">${MN[month]} ${year}</div><div class="scal-grid">${DH.map(h=>`<div class="scal-dh">${h}</div>`).join('')}${cells}</div></div>`;
   }
 
   // ── Card Event Delegation ──────────────────────────────
