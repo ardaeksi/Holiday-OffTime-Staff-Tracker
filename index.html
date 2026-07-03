@@ -505,103 +505,120 @@
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); } catch (e) { console.warn(e); }
   }
 
-  // ── IndexedDB ──────────────────────────────────────────
-  function idbOpen() {
-    return new Promise((res, rej) => {
-      const req = indexedDB.open('holidayTrackerDB', 1);
-      req.onupgradeneeded = () => req.result.createObjectStore('kv');
-      req.onsuccess = () => res(req.result);
-      req.onerror   = () => rej(req.error);
-    });
-  }
-  async function idbGet(key) {
-    const db = await idbOpen();
-    return new Promise((res, rej) => { const tx = db.transaction('kv','readonly'); const r = tx.objectStore('kv').get(key); r.onsuccess = ()=>res(r.result); r.onerror=()=>rej(r.error); });
-  }
-  async function idbSet(key, val) {
-    const db = await idbOpen();
-    return new Promise((res, rej) => { const tx = db.transaction('kv','readwrite'); tx.objectStore('kv').put(val,key); tx.oncomplete=()=>res(); tx.onerror=()=>rej(tx.error); });
-  }
+  // ── Cloud Sync ─────────────────────────────────────────
+  const IS_LOCAL  = ['localhost','127.0.0.1',''].includes(location.hostname) || location.protocol === 'file:';
+  const PWD_KEY   = 'trackerPwd_v1';
+  let syncInFlight = false;
+  let notifsShown  = false;
 
-  // ── File System API ────────────────────────────────────
-  const fsSupported = 'showSaveFilePicker' in window;
-  let fileHandle = null, fileSaveInFlight = false;
+  function getStoredPassword() { return localStorage.getItem(PWD_KEY) || ''; }
+  function storePassword(pw)   { localStorage.setItem(PWD_KEY, pw); }
+  function clearPassword()     { localStorage.removeItem(PWD_KEY); }
 
-  function setStorageStatus(kind, icon, text, btnLabel) {
+  function setSyncStatus(state, detail) {
     const bar = document.getElementById('storageBar');
-    bar.className = 'storage-bar ' + (kind || 'sb-info');
+    const btn = document.getElementById('storageBtn');
+    btn.style.display = 'none';
+    const map = {
+      idle:    ['sb-info',  '↻',  'Connecting to cloud…'],
+      ok:      ['sb-ok',   '✓',  'Cloud synced' + (detail ? ' — saved at ' + detail : '')],
+      saving:  ['sb-info',  '↑',  'Saving to cloud…'],
+      error:   ['sb-error', '⚠',  'Sync failed — changes kept locally'],
+      offline: ['sb-warn',  '↻',  'Could not reach server — showing local data'],
+      local:   ['sb-info',  '💾', 'Local mode — open the Cloudflare-hosted URL to enable cloud sync'],
+    };
+    const [cls, icon, text] = map[state] || map.idle;
+    bar.className = 'storage-bar ' + cls;
     document.getElementById('storageIcon').textContent = icon;
     document.getElementById('storageText').textContent = text;
-    const btn = document.getElementById('storageBtn');
-    btn.style.display = btnLabel ? 'inline-flex' : 'none';
-    if (btnLabel) btn.textContent = btnLabel;
-  }
-
-  async function readFromFile(handle) {
-    try {
-      const text = await (await handle.getFile()).text();
-      if (!text.trim()) return false;
-      const p = JSON.parse(text);
-      if (p && p.instructors) { data = migrate(p); saveToLocalStorage(); return true; }
-    } catch (e) { console.warn('File read error', e); }
-    return false;
-  }
-
-  async function writeToFile() {
-    if (!fileHandle || fileSaveInFlight) return;
-    fileSaveInFlight = true;
-    try {
-      const w = await fileHandle.createWritable();
-      await w.write(JSON.stringify(data, null, 2));
-      await w.close();
-      const t = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-      setStorageStatus('sb-ok', '💾', `Auto-saved to "${fileHandle.name}" — ${t}`);
-    } catch (e) { setStorageStatus('sb-error', '⚠', `Could not write to file. Reconnect?`, 'Reconnect'); }
-    fileSaveInFlight = false;
-  }
-
-  async function saveData() { saveToLocalStorage(); await writeToFile(); }
-
-  async function connectSaveFile() {
-    if (!fsSupported) { alert('Use Chrome or Edge for file saving.'); return; }
-    try {
-      const handle = await window.showSaveFilePicker({
-        suggestedName: 'holiday-tracker-data.json',
-        types: [{ description: 'Tracker Data', accept: { 'application/json': ['.json'] } }]
-      });
-      fileHandle = handle;
-      await idbSet('fileHandle', handle);
-      const loaded = await readFromFile(handle);
-      if (loaded) render(); else await writeToFile();
-      setStorageStatus('sb-ok', '💾', `Saving to "${handle.name}"`);
-    } catch (e) { if (e.name !== 'AbortError') console.error(e); }
-  }
-
-  async function initFileConnection() {
-    if (!fsSupported) { setStorageStatus('sb-warn', '⚠', 'Browser storage only (use Chrome/Edge for file saving).'); return; }
-    try {
-      const handle = await idbGet('fileHandle');
-      if (!handle) { setStorageStatus('sb-warn', '📂', 'Browser storage only. Connect a file for persistent disk backup.', 'Connect Save File'); return; }
-      fileHandle = handle;
-      const perm = await handle.queryPermission({ mode: 'readwrite' });
-      if (perm === 'granted') {
-        const loaded = await readFromFile(handle);
-        if (loaded) render();
-        setStorageStatus('sb-ok', '💾', `Auto-saving to "${handle.name}"`);
-      } else {
-        setStorageStatus('sb-warn', '🔒', `Save file "${handle.name}" needs permission.`, 'Reconnect');
-      }
-    } catch (e) { setStorageStatus('sb-warn', '📂', 'Browser storage only. Connect a file for backup.', 'Connect Save File'); }
-  }
-
-  document.getElementById('storageBtn').addEventListener('click', async () => {
-    if (fileHandle) {
-      try {
-        const perm = await fileHandle.requestPermission({ mode: 'readwrite' });
-        if (perm === 'granted') { const loaded = await readFromFile(fileHandle); if (loaded) render(); else await writeToFile(); setStorageStatus('sb-ok','💾',`Auto-saving to "${fileHandle.name}"`); return; }
-      } catch (e) { console.warn(e); }
+    if (state === 'error' || state === 'offline') {
+      btn.style.display = 'inline-flex'; btn.textContent = 'Retry';
     }
-    connectSaveFile();
+  }
+
+  async function loadFromServer() {
+    const pw = getStoredPassword();
+    if (!pw) { showLogin(); return; }
+    setSyncStatus('idle');
+    try {
+      const resp = await fetch('/api/data', { headers: { 'X-App-Password': pw } });
+      if (resp.status === 401) { clearPassword(); showLogin('Wrong password — please sign in again.'); return; }
+      if (!resp.ok) throw new Error('HTTP ' + resp.status);
+      const json = await resp.json();
+      // If server is empty but we have local data, push local data up to bootstrap
+      if (!json.instructors.length && !json.employees.length &&
+          (data.instructors.length || data.employees.length)) {
+        await saveToServer();
+      } else {
+        data = migrate(json);
+        saveToLocalStorage();
+        render();
+      }
+      setSyncStatus('ok', new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+      if (!notifsShown) { checkNotifications(); notifsShown = true; }
+      hideLogin();
+    } catch (e) {
+      setSyncStatus('offline');
+      render();
+      if (!notifsShown) { checkNotifications(); notifsShown = true; }
+      hideLogin();
+    }
+  }
+
+  async function saveToServer() {
+    if (syncInFlight || IS_LOCAL) return;
+    const pw = getStoredPassword();
+    if (!pw) return;
+    syncInFlight = true;
+    setSyncStatus('saving');
+    try {
+      const resp = await fetch('/api/data', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-App-Password': pw },
+        body: JSON.stringify(data)
+      });
+      if (resp.status === 401) { clearPassword(); showLogin('Session expired — please sign in again.'); }
+      else if (!resp.ok) throw new Error();
+      else setSyncStatus('ok', new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+    } catch { setSyncStatus('error'); }
+    syncInFlight = false;
+  }
+
+  async function saveData() { saveToLocalStorage(); await saveToServer(); }
+
+  // ── Login ──────────────────────────────────────────────
+  function showLogin(errMsg) {
+    const ov = document.getElementById('loginOverlay');
+    ov.classList.remove('hidden');
+    if (errMsg) { const e = document.getElementById('loginError'); e.textContent = errMsg; e.classList.add('show'); }
+    setTimeout(() => document.getElementById('loginPwd').focus(), 80);
+  }
+  function hideLogin() { document.getElementById('loginOverlay').classList.add('hidden'); }
+
+  async function attemptLogin() {
+    const pw  = document.getElementById('loginPwd').value.trim();
+    const err = document.getElementById('loginError');
+    const btn = document.getElementById('loginBtn');
+    err.classList.remove('show');
+    if (!pw) { err.textContent = 'Please enter the access password.'; err.classList.add('show'); return; }
+    btn.disabled = true; btn.textContent = 'Signing in…';
+    storePassword(pw);
+    await loadFromServer();
+    btn.disabled = false; btn.textContent = 'Sign In';
+    // If overlay is still visible, password was wrong
+    if (!document.getElementById('loginOverlay').classList.contains('hidden')) {
+      clearPassword();
+      err.textContent = 'Incorrect password. Please try again.'; err.classList.add('show');
+      document.getElementById('loginPwd').value = '';
+      document.getElementById('loginPwd').focus();
+    }
+  }
+
+  document.getElementById('loginBtn').addEventListener('click', attemptLogin);
+  document.getElementById('loginPwd').addEventListener('keydown', e => { if (e.key === 'Enter') attemptLogin(); });
+  document.getElementById('storageBtn').addEventListener('click', () => {
+    if (!getStoredPassword()) { showLogin(); return; }
+    loadFromServer();
   });
 
   // ── Helpers ────────────────────────────────────────────
@@ -1048,9 +1065,21 @@
   fWksWrap.classList.add('field-hidden');
   fDaysWrap.classList.add('field-hidden');
   loadFromLocalStorage();
-  render();
-  checkNotifications();
-  initFileConnection();
+  if (IS_LOCAL) {
+    render();
+    checkNotifications();
+    notifsShown = true;
+    setSyncStatus('local');
+  } else {
+    const storedPw = getStoredPassword();
+    if (storedPw) {
+      render(); // instant render from localStorage cache
+      if (!notifsShown) { checkNotifications(); notifsShown = true; }
+      loadFromServer(); // then sync latest from cloud in background
+    } else {
+      showLogin();
+    }
+  }
 })();
 </script>
 </body>
