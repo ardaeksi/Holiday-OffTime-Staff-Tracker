@@ -267,6 +267,23 @@
 
   footer { text-align: center; font-size: 12px; color: var(--grey-300); margin-top: 40px; }
 
+  /* ── LOGIN OVERLAY ───────────────────────────────────── */
+  .login-overlay { position: fixed; inset: 0; background: linear-gradient(135deg, var(--navy) 0%, var(--navy-mid) 60%, var(--dark-green) 100%); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 20px; }
+  .login-overlay.hidden { display: none; }
+  .login-card { background: var(--white); border-radius: 16px; padding: 40px 36px 36px; width: 100%; max-width: 380px; box-shadow: var(--shadow-lg); text-align: center; }
+  .login-logo { width: 80px; height: 80px; object-fit: contain; border-radius: 12px; margin-bottom: 18px; }
+  .login-title { font-size: 22px; font-weight: 800; color: var(--navy); margin: 0 0 4px; }
+  .login-subtitle { font-size: 13px; color: var(--grey-500); margin: 0 0 28px; }
+  .login-err { background: #fde8e7; border: 1px solid #f3b9b4; border-radius: 8px; padding: 10px 14px; font-size: 13px; color: #b3261e; margin-bottom: 16px; text-align: left; display: none; }
+  .login-err.show { display: block; }
+  .login-field { text-align: left; margin-bottom: 16px; }
+  .login-field label { display: block; font-size: 11.5px; font-weight: 700; color: var(--grey-700); text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 6px; }
+  .login-field input { width: 100%; padding: 11px 14px; border-radius: 8px; border: 1.5px solid var(--grey-200); font-size: 15px; font-family: inherit; color: var(--text); background: var(--grey-50); box-sizing: border-box; transition: border-color 0.15s; }
+  .login-field input:focus { outline: none; border-color: var(--green); background: var(--white); }
+  .login-btn { width: 100%; padding: 13px; background: var(--dark-green); color: var(--white); border: none; border-radius: 8px; font-size: 15px; font-weight: 700; cursor: pointer; font-family: inherit; transition: background 0.15s; margin-top: 4px; }
+  .login-btn:hover:not(:disabled) { background: var(--green); }
+  .login-btn:disabled { opacity: 0.55; cursor: not-allowed; }
+
   @media (max-width: 580px) {
     .header-inner { padding: 16px; gap: 12px; }
     .header-text h1 { font-size: 17px; }
@@ -281,6 +298,21 @@
 </style>
 </head>
 <body>
+
+<!-- ── LOGIN OVERLAY ──────────────────────────────────── -->
+<div class="login-overlay hidden" id="loginOverlay">
+  <div class="login-card">
+    <img class="login-logo" src="LogoHighPixelated.png.png" alt="Logo">
+    <h2 class="login-title">Staff Tracker</h2>
+    <p class="login-subtitle">Canadian All Care College — Internal Use</p>
+    <div class="login-err" id="loginError"></div>
+    <div class="login-field">
+      <label for="loginPwd">Access Password</label>
+      <input type="password" id="loginPwd" placeholder="Enter password" autocomplete="current-password">
+    </div>
+    <button class="login-btn" id="loginBtn">Sign In</button>
+  </div>
+</div>
 
 <!-- ── HEADER ──────────────────────────────────────────── -->
 <header class="site-header theme-inst" id="siteHeader">
