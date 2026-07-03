@@ -1,0 +1,12 @@
+name = "holiday-tracker"
+compatibility_date = "2026-01-01"
+pages_build_output_dir = "."
+
+# After creating your KV namespace in the Cloudflare dashboard,
+# paste the namespace ID below for local dev with `wrangler pages dev`.
+# For production, bind it in Pages > Settings > Functions > KV Namespace Bindings
+# using the binding name: TRACKER_KV
+
+[[kv_namespaces]]
+binding = "TRACKER_KV"
+id = "REPLACE_WITH_YOUR_KV_NAMESPACE_ID"
