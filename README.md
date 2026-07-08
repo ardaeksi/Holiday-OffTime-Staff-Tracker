@@ -133,9 +133,11 @@ No server restarts, no downtime.
 
 ## Daily Backups
 
-A separate small Cloudflare Worker (`backup-worker/`) automatically snapshots the KV data once a day, keeping the **last 3 snapshots** and overwriting the oldest each time a new one is taken.
+A separate small Cloudflare Worker (`backup-worker/`), deployed and live at **https://holiday-tracker-backup.arda-eksioglu12.workers.dev**, automatically snapshots the KV data once a day, keeping the **last 3 snapshots** and overwriting the oldest each time a new one is taken.
 
-### One-time setup
+It has its own password, `BACKUP_PASSWORD`, deliberately separate from the main app's `APP_PASSWORD` — the office password stays simple for daily use, while the backup/restore access (which can overwrite live data) uses a long random one. It's stored as an encrypted Wrangler secret (`wrangler secret put BACKUP_PASSWORD`), not in any file — keep the actual value in a password manager, not in this repo.
+
+### One-time setup (already done for this deployment)
 
 1. Install Wrangler if you don't have it: `npm install -g wrangler`, then `wrangler login`
 2. Open `backup-worker/wrangler.toml` and paste in the **same KV namespace ID** already bound to the main Pages project (Cloudflare dashboard → Workers & Pages → KV → your namespace → copy the ID)
@@ -143,8 +145,12 @@ A separate small Cloudflare Worker (`backup-worker/`) automatically snapshots th
    ```bash
    wrangler deploy
    ```
-4. In the Cloudflare dashboard, open the new `holiday-tracker-backup` Worker → **Settings → Variables** → add `APP_PASSWORD` (same value as the main app) and encrypt it
-5. Confirm the cron trigger is listed under **Settings → Triggers** (already defined in `wrangler.toml` — runs daily at 08:00 UTC)
+4. Set the backup password as an encrypted secret (from inside `backup-worker/`):
+   ```bash
+   wrangler secret put BACKUP_PASSWORD
+   ```
+   (paste/type a long random value when prompted — do not reuse the office `APP_PASSWORD`)
+5. Confirm the cron trigger is listed under **Settings → Triggers** in the Cloudflare dashboard for the `holiday-tracker-backup` Worker (already defined in `wrangler.toml` — runs daily at 08:00 UTC)
 
 ### How it works
 
@@ -153,17 +159,17 @@ A separate small Cloudflare Worker (`backup-worker/`) automatically snapshots th
 
 ### Checking backups / restoring
 
-These call the deployed backup Worker directly (URL shown after `wrangler deploy`, looks like `https://holiday-tracker-backup.<your-subdomain>.workers.dev`) and require the `X-App-Password` header:
+These call the deployed backup Worker directly and require the `X-Backup-Password` header (the value set via `wrangler secret put` above):
 
 ```bash
 # List backup timestamps
-curl -H "X-App-Password: yourpassword" https://holiday-tracker-backup.<subdomain>.workers.dev/list
+curl -H "X-Backup-Password: yourbackuppassword" https://holiday-tracker-backup.arda-eksioglu12.workers.dev/list
 
 # Force an extra backup right now
-curl -X POST -H "X-App-Password: yourpassword" https://holiday-tracker-backup.<subdomain>.workers.dev/run
+curl -X POST -H "X-Backup-Password: yourbackuppassword" https://holiday-tracker-backup.arda-eksioglu12.workers.dev/run
 
 # Restore slot 0/1/2 back into the live app (overwrites current data!)
-curl -X POST -H "X-App-Password: yourpassword" https://holiday-tracker-backup.<subdomain>.workers.dev/restore/0
+curl -X POST -H "X-Backup-Password: yourbackuppassword" https://holiday-tracker-backup.arda-eksioglu12.workers.dev/restore/0
 ```
 
 ---

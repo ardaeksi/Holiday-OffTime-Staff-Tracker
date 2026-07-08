@@ -12,8 +12,8 @@ function json(data, status = 200) {
 }
 
 function checkAuth(request, env) {
-  const pw = request.headers.get('X-App-Password');
-  return env.APP_PASSWORD && pw === env.APP_PASSWORD;
+  const pw = request.headers.get('X-Backup-Password');
+  return env.BACKUP_PASSWORD && pw === env.BACKUP_PASSWORD;
 }
 
 async function runBackup(env) {
@@ -37,7 +37,7 @@ export default {
     ctx.waitUntil(runBackup(env));
   },
 
-  // Manual endpoints, protected by the same password as the main app
+  // Manual endpoints, protected by their own BACKUP_PASSWORD (separate from the main app's password)
   async fetch(request, env) {
     if (!checkAuth(request, env)) return json({ error: 'Unauthorized' }, 401);
 
