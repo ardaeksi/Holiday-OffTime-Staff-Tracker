@@ -1,0 +1,15 @@
+name = "holiday-tracker-backup"
+main = "index.js"
+compatibility_date = "2024-01-01"
+
+# Runs once a day at 08:00 UTC (04:00 Eastern during daylight time).
+# Change the cron string if you'd like a different time — https://crontab.guru
+[triggers]
+crons = ["0 8 * * *"]
+
+# Must point at the SAME KV namespace already bound to the main Pages project
+# as "TRACKER_KV". Find its ID in Cloudflare dashboard → Workers & Pages → KV,
+# or by running: wrangler kv namespace list
+[[kv_namespaces]]
+binding = "TRACKER_KV"
+id = "PASTE_YOUR_EXISTING_KV_NAMESPACE_ID_HERE"

@@ -230,6 +230,9 @@
   .radio-option input { display: none; }
   .radio-label { display: block; padding: 8px 10px; border: 1.5px solid var(--grey-200); border-radius: var(--radius-sm); text-align: center; font-size: 13px; font-weight: 600; color: var(--grey-700); background: var(--grey-50); transition: all 0.1s; }
   .radio-option input:checked + .radio-label { background: var(--navy); border-color: var(--navy); color: var(--white); }
+  .checkbox-field { display: flex; align-items: center; gap: 9px; cursor: pointer; padding: 9px 12px; border-radius: var(--radius-sm); border: 1.5px solid var(--grey-200); background: var(--grey-50); }
+  .checkbox-field input { width: 16px; height: 16px; accent-color: var(--green); cursor: pointer; flex-shrink: 0; margin: 0; }
+  .checkbox-field span { font-size: 13px; font-weight: 600; color: var(--grey-700); text-transform: none; letter-spacing: normal; }
   .field-hidden { display: none !important; }
   .field-hint { font-size: 11.5px; color: var(--grey-500); margin-top: 5px; }
   .form-divider { border: none; border-top: 1px solid var(--grey-100); margin: 16px 0; }
@@ -484,6 +487,14 @@
     </div>
 
     <div class="field">
+      <label class="checkbox-field" for="fWorksSat">
+        <input type="checkbox" id="fWorksSat">
+        <span>Works on Saturdays (counts Saturday as an off day too)</span>
+      </label>
+      <p class="field-hint">Sundays are never counted. Leave unchecked to count only Monday–Friday.</p>
+    </div>
+
+    <div class="field">
       <label for="fNote">Note <span style="font-weight:400;text-transform:none;letter-spacing:0">(optional)</span></label>
       <textarea id="fNote" placeholder="e.g. Summer vacation, medical leave…"></textarea>
     </div>
@@ -645,19 +656,34 @@
   // ── Helpers ────────────────────────────────────────────
   function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
 
-  function calcDuration(s, e) {
-    const total = Math.round((new Date(e+'T00:00:00') - new Date(s+'T00:00:00')) / 86400000) + 1;
+  // Sundays never count as an off day. Saturdays only count when worksSaturday is true.
+  function isOffDay(dow, worksSaturday) {
+    if (dow === 0) return false;
+    if (dow === 6) return !!worksSaturday;
+    return true;
+  }
+  function calcDuration(s, e, worksSaturday) {
+    const start = new Date(s+'T00:00:00'), end = new Date(e+'T00:00:00');
+    if (end < start) return null;
+    let total = 0;
+    for (let d = new Date(start); d <= end; d.setDate(d.getDate()+1)) {
+      if (isOffDay(d.getDay(), worksSaturday)) total++;
+    }
     if (total < 1) return null;
     return { totalDays: total, weeks: Math.floor(total/7), remDays: total%7, hours: total*8 };
   }
   function weeksToEndDate(s, w) { const d = new Date(s+'T00:00:00'); d.setDate(d.getDate() + Math.round(w*7) - 1); return d.toISOString().slice(0,10); }
   function daysToEndDate(s, n)  { const d = new Date(s+'T00:00:00'); d.setDate(d.getDate() + n - 1); return d.toISOString().slice(0,10); }
 
-  function daysInYear(s, e, year) {
+  function daysInYear(s, e, year, worksSaturday) {
     const start = new Date(Math.max(new Date(s+'T00:00:00'), new Date(year,0,1)));
     const end   = new Date(Math.min(new Date(e+'T00:00:00'), new Date(year,11,31)));
     if (end < start) return 0;
-    return Math.round((end - start) / 86400000) + 1;
+    let total = 0;
+    for (let d = new Date(start); d <= end; d.setDate(d.getDate()+1)) {
+      if (isOffDay(d.getDay(), worksSaturday)) total++;
+    }
+    return total;
   }
   function fmtDur(dur) {
     if (!dur) return '—';
@@ -678,7 +704,7 @@
 
   function yearTotals(person, year) {
     let days = 0, count = 0;
-    person.vacations.forEach(v => { const d = daysInYear(v.startDate, v.endDate, year); if (d>0){days+=d;count++;} });
+    person.vacations.forEach(v => { const d = daysInYear(v.startDate, v.endDate, year, v.worksSaturday); if (d>0){days+=d;count++;} });
     return { totalDays: days, weeks: Math.floor(days/7), remDays: days%7, hours: days*8, count };
   }
 
@@ -688,7 +714,10 @@
     vacations.forEach(v => {
       let d = new Date(v.startDate+'T00:00:00');
       const end = new Date(v.endDate+'T00:00:00');
-      while (d <= end) { set.add(d.toISOString().slice(0,10)); d.setDate(d.getDate()+1); }
+      while (d <= end) {
+        if (isOffDay(d.getDay(), v.worksSaturday)) set.add(d.toISOString().slice(0,10));
+        d.setDate(d.getDate()+1);
+      }
     });
     return set;
   }
@@ -827,7 +856,7 @@
     const isCollapsed = !!collapseState[person.id];
     const onVacNow   = person.vacations.some(v => isActiveToday(v.startDate, v.endDate));
     const durStr     = fmtDur({ weeks: totals.weeks, remDays: totals.remDays, totalDays: totals.totalDays });
-    const allDays    = person.vacations.reduce((s,v)=>{ const d=calcDuration(v.startDate,v.endDate); return s+(d?d.totalDays:0); },0);
+    const allDays    = person.vacations.reduce((s,v)=>{ const d=calcDuration(v.startDate,v.endDate,v.worksSaturday); return s+(d?d.totalDays:0); },0);
     const cardType   = activeTab === 'instructors' ? 'card-inst' : 'card-emp';
     const addBtnCls  = activeTab === 'instructors' ? 'btn-navy'  : 'btn-primary';
 
@@ -835,7 +864,7 @@
     const vacsHtml   = vacsSorted.length === 0
       ? `<p class="no-vacations">No vacation entries yet.</p>`
       : vacsSorted.map(v => {
-          const dur    = calcDuration(v.startDate, v.endDate);
+          const dur    = calcDuration(v.startDate, v.endDate, v.worksSaturday);
           const active = isActiveToday(v.startDate, v.endDate);
           return `
           <div class="vac-item" data-vac-id="${v.id}">
@@ -872,7 +901,7 @@
         <div class="year-summary">
           <div class="year-pill">
             <div class="pill-top">${totals.totalDays>0?escHtml(durStr):'—'}</div>
-            ${totals.totalDays>0?`<div class="pill-sub">${totals.totalDays} days · ${totals.hours} hrs</div>`:''}
+            ${totals.totalDays>0?`<div class="pill-sub">${totals.totalDays} day${totals.totalDays!==1?'s':''}</div>`:''}
             <div class="pill-bot">${THIS_YEAR} off time</div>
           </div>
           <svg class="chevron" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
@@ -917,9 +946,11 @@
         let d = new Date(v.startDate + 'T00:00:00');
         const end = new Date(v.endDate + 'T00:00:00');
         while (d <= end) {
-          const ds = d.toISOString().slice(0, 10);
-          if (!vacMap[ds]) vacMap[ds] = [];
-          vacMap[ds].push({ firstName, color });
+          if (isOffDay(d.getDay(), v.worksSaturday)) {
+            const ds = d.toISOString().slice(0, 10);
+            if (!vacMap[ds]) vacMap[ds] = [];
+            vacMap[ds].push({ firstName, color });
+          }
           d.setDate(d.getDate() + 1);
         }
       });
@@ -1006,6 +1037,7 @@
   const fWeeks    = document.getElementById('fWeeks');
   const fDays     = document.getElementById('fDays');
   const fNote     = document.getElementById('fNote');
+  const fWorksSat = document.getElementById('fWorksSat');
   const formError = document.getElementById('formError');
   const rEndDate  = document.getElementById('rEndDate');
   const rWeeks    = document.getElementById('rWeeks');
@@ -1018,7 +1050,7 @@
 
   function openModal(prefill, catOverride) {
     fName.value  = prefill || '';
-    fStart.value = ''; fEnd.value = ''; fWeeks.value = ''; fDays.value = ''; fNote.value = '';
+    fStart.value = ''; fEnd.value = ''; fWeeks.value = ''; fDays.value = ''; fNote.value = ''; fWorksSat.checked = false;
     rEndDate.checked = true;
     fEndWrap.classList.remove('field-hidden'); fWksWrap.classList.add('field-hidden'); fDaysWrap.classList.add('field-hidden');
     const cat = catOverride || activeTab;
@@ -1048,6 +1080,7 @@
     const name      = fName.value.trim();
     const startDate = fStart.value;
     const note      = fNote.value.trim();
+    const worksSaturday = fWorksSat.checked;
     const targetKey = rCatInst.checked ? 'instructors' : 'employees';
     let endDate;
 
@@ -1068,12 +1101,12 @@
       endDate = daysToEndDate(startDate, n);
     }
 
-    const dur = calcDuration(startDate, endDate);
+    const dur = calcDuration(startDate, endDate, worksSaturday);
     if (!dur||dur.totalDays<1) { showErr('Duration must be at least 1 day.'); return; }
 
     let person = data[targetKey].find(p => p.name.toLowerCase() === name.toLowerCase());
     if (!person) { person = { id: uid(), name, vacations: [] }; data[targetKey].push(person); }
-    person.vacations.push({ id: uid(), startDate, endDate, note, createdAt: Date.now() });
+    person.vacations.push({ id: uid(), startDate, endDate, note, worksSaturday, createdAt: Date.now() });
     pendingFlashId = person.id;
 
     // Switch to the saved tab so user can see the result

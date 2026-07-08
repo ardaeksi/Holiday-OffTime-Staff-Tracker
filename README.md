@@ -30,9 +30,12 @@ A single-page web application for tracking instructor and office employee vacati
 ├── holiday-tracker-data.json   # Demo/seed data (not used at runtime — cloud is the source of truth)
 ├── wrangler.toml               # Cloudflare configuration (for local dev only)
 ├── README.md                   # This file
-└── functions/
-    └── api/
-        └── data.js             # Cloudflare Pages Function — handles GET and POST for /api/data
+├── functions/
+│   └── api/
+│       └── data.js             # Cloudflare Pages Function — handles GET and POST for /api/data
+└── backup-worker/               # Standalone Worker — daily KV backups (see "Daily Backups" below)
+    ├── index.js
+    └── wrangler.toml
 ```
 
 ---
@@ -125,6 +128,43 @@ Any time you make a change to the code:
 3. All users are on the new version on their next page load
 
 No server restarts, no downtime.
+
+---
+
+## Daily Backups
+
+A separate small Cloudflare Worker (`backup-worker/`) automatically snapshots the KV data once a day, keeping the **last 3 snapshots** and overwriting the oldest each time a new one is taken.
+
+### One-time setup
+
+1. Install Wrangler if you don't have it: `npm install -g wrangler`, then `wrangler login`
+2. Open `backup-worker/wrangler.toml` and paste in the **same KV namespace ID** already bound to the main Pages project (Cloudflare dashboard → Workers & Pages → KV → your namespace → copy the ID)
+3. From inside `backup-worker/`, run:
+   ```bash
+   wrangler deploy
+   ```
+4. In the Cloudflare dashboard, open the new `holiday-tracker-backup` Worker → **Settings → Variables** → add `APP_PASSWORD` (same value as the main app) and encrypt it
+5. Confirm the cron trigger is listed under **Settings → Triggers** (already defined in `wrangler.toml` — runs daily at 08:00 UTC)
+
+### How it works
+
+- Each run reads the current `tracker-data` key and writes it into one of three rotating slots (`backup:0`, `backup:1`, `backup:2`) alongside a timestamp
+- A `backup:meta` key tracks which slot gets overwritten next, so it's always the oldest of the three
+
+### Checking backups / restoring
+
+These call the deployed backup Worker directly (URL shown after `wrangler deploy`, looks like `https://holiday-tracker-backup.<your-subdomain>.workers.dev`) and require the `X-App-Password` header:
+
+```bash
+# List backup timestamps
+curl -H "X-App-Password: yourpassword" https://holiday-tracker-backup.<subdomain>.workers.dev/list
+
+# Force an extra backup right now
+curl -X POST -H "X-App-Password: yourpassword" https://holiday-tracker-backup.<subdomain>.workers.dev/run
+
+# Restore slot 0/1/2 back into the live app (overwrites current data!)
+curl -X POST -H "X-App-Password: yourpassword" https://holiday-tracker-backup.<subdomain>.workers.dev/restore/0
+```
 
 ---
 
