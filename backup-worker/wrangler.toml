@@ -2,8 +2,7 @@ name = "holiday-tracker-backup"
 main = "index.js"
 compatibility_date = "2024-01-01"
 
-# Runs once a day at 08:00 UTC (04:00 Eastern during daylight time).
-# Change the cron string if you'd like a different time — https://crontab.guru
+
 [triggers]
 crons = ["0 8 * * *"]
 
