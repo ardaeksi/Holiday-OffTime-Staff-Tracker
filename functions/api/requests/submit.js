@@ -1,5 +1,5 @@
 import { json } from '../../_lib/http.js';
-import { readStore, writeStore } from '../../_lib/store.js';
+import { readStore, writeStore, findPersonByEmail } from '../../_lib/store.js';
 
 function uid() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
@@ -45,11 +45,14 @@ export async function onRequestPost({ request, env, data }) {
   }
 
   const store = await readStore(env);
+  // Looked up fresh rather than trusting the session's snapshot — same reason
+  // as /api/data and /api/auth/me: a record may have been linked since sign-in.
+  const match = findPersonByEmail(store, session.email);
   const requestObj = {
     id: uid(),
-    category: session.personCategory,
-    personId: session.personId,
-    personName: session.personName || session.name,
+    category: match ? match.category : null,
+    personId: match ? match.person.id : null,
+    personName: match ? match.person.name : session.name,
     submittedByEmail: session.email,
     startDate,
     endDate,

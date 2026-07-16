@@ -1,5 +1,5 @@
 import { json } from '../_lib/http.js';
-import { readStore, writeStore } from '../_lib/store.js';
+import { readStore, writeStore, findPersonByEmail } from '../_lib/store.js';
 
 export async function onRequestGet({ env, data }) {
   const session = data.session;
@@ -17,11 +17,11 @@ export async function onRequestGet({ env, data }) {
   }
 
   // Staff only ever see their own linked record — never the full roster.
+  // Looked up fresh by email (not the session's snapshot) for the same reason
+  // as /api/auth/me: a record may have been linked/created after sign-in.
+  const match = findPersonByEmail(store, session.email);
   const result = { instructors: [], employees: [] };
-  if (session.personId && session.personCategory) {
-    const person = (store[session.personCategory] || []).find(p => p.id === session.personId);
-    if (person) result[session.personCategory] = [person];
-  }
+  if (match) result[match.category] = [match.person];
   return json(result);
 }
 
