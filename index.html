@@ -593,7 +593,7 @@
 <!-- ── REQUEST LOG MODAL (admin) ────────────────────────── -->
 <div class="modal-overlay" id="logModalOverlay">
   <div class="modal" role="dialog" aria-modal="true" style="max-width:560px">
-    <div class="modal-title">Request Log</div>
+    <div class="modal-title">Activity Log</div>
     <div class="vacation-list" id="logList"></div>
     <div class="modal-actions">
       <button class="btn btn-ghost" id="closeLogModal">Close</button>
@@ -618,6 +618,7 @@
   let pendingFlashId = null;
   let session = null;
   let adminRequests = [];
+  let auditLog = [];
   let myRequests = [];
 
   function migrate(d) {
@@ -907,7 +908,7 @@
     document.getElementById('statLogLbl').textContent = isAdmin ? 'Log' : 'Entries This Year';
     document.getElementById('statLogTile').setAttribute('aria-disabled', isAdmin ? 'false' : 'true');
     document.getElementById('statEntries').textContent = isAdmin
-      ? adminRequests.filter(r => r.status !== 'pending').length
+      ? adminRequests.filter(r => r.status !== 'pending').length + auditLog.length
       : people.reduce((s,p) => s + yearTotals(p, THIS_YEAR).count, 0);
   }
 
@@ -973,6 +974,35 @@
       if (resp.ok) { const j = await resp.json(); adminRequests = j.requests || []; }
     } catch { /* keep last known list */ }
     document.getElementById('tabCountReq').textContent = adminRequests.filter(r => r.status === 'pending').length;
+    updateStats();
+  }
+
+  async function loadAuditLog() {
+    try {
+      const resp = await fetch('/api/audit/list', { cache: 'no-store' });
+      if (resp.ok) { const j = await resp.json(); auditLog = j.entries || []; }
+    } catch { /* keep last known list */ }
+    updateStats();
+  }
+
+  // Deletion entries in the Activity Log — a person or vacation an admin removed.
+  function renderAuditItem(a) {
+    const catTag = `<span class="cat-tag cat-tag-${a.category}">${a.category === 'instructors' ? 'Instructor' : 'Office Employee'}</span>`;
+    const who  = a.deletedByEmail ? escHtml(a.deletedByEmail) : 'unknown';
+    const when = a.deletedAt ? fmtDate(new Date(a.deletedAt).toISOString().slice(0, 10)) : '';
+    const line = a.type === 'person-deleted'
+      ? `Removed from tracker (${a.vacationCount} vacation${a.vacationCount === 1 ? '' : 's'} with them)`
+      : `Vacation deleted: ${escHtml(fmtRange(a.startDate, a.endDate))}`;
+
+    return `
+    <div class="vac-item">
+      <div class="vac-dates">
+        <p class="vac-date-range">${escHtml(a.personName)} ${catTag}</p>
+        <p class="vac-note">${line}</p>
+        <p class="vac-note">by ${who}${when ? ' on ' + when : ''}</p>
+      </div>
+      <span class="vac-active-tag req-denied" style="flex-shrink:0">Deleted</span>
+    </div>`;
   }
 
   // Compact row shared by the Requests dropdown (pending, actionable) and the Log modal (decided, read-only).
@@ -1061,12 +1091,17 @@
   });
 
   async function openLogModal() {
-    await loadAdminRequests();
+    await Promise.all([loadAdminRequests(), loadAuditLog()]);
     const el = document.getElementById('logList');
-    const decided = adminRequests.filter(r => r.status !== 'pending');
-    el.innerHTML = decided.length
-      ? decided.map(renderRequestItem).join('')
-      : `<p class="no-vacations">No decided requests yet.</p>`;
+    const decided   = adminRequests.filter(r => r.status !== 'pending')
+      .map(r => ({ ts: r.decidedAt || r.createdAt, html: renderRequestItem(r) }));
+    const deletions = auditLog
+      .map(a => ({ ts: a.deletedAt, html: renderAuditItem(a) }));
+    const combined  = [...decided, ...deletions].sort((a, b) => b.ts - a.ts);
+
+    el.innerHTML = combined.length
+      ? combined.map(entry => entry.html).join('')
+      : `<p class="no-vacations">No activity yet.</p>`;
     document.getElementById('logModalOverlay').classList.add('open');
   }
   function closeLogModal() { document.getElementById('logModalOverlay').classList.remove('open'); }
@@ -1306,9 +1341,14 @@
         await saveData();
         render();
         // Deleting a vacation that came from an approved request clears that
-        // request server-side too (see functions/api/data.js) — refresh so the
-        // Requests badge/dropdown and Log stop showing it.
-        if (session && session.role === 'admin') { await loadAdminRequests(); renderReqDropdownList(); }
+        // request server-side too, and the deletion itself gets logged (see
+        // functions/api/data.js) — refresh so the Requests dropdown and Log
+        // reflect both right away.
+        if (session && session.role === 'admin') {
+          await loadAdminRequests();
+          renderReqDropdownList();
+          await loadAuditLog();
+        }
       })();
       return;
     }
@@ -1619,7 +1659,7 @@
       session = me;
       applyRoleView();
       await loadFromServer();
-      if (session.role === 'admin') loadAdminRequests();
+      if (session.role === 'admin') { loadAdminRequests(); loadAuditLog(); }
       else loadMyRequests();
     })();
   }

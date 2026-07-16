@@ -1,6 +1,10 @@
 import { json } from '../_lib/http.js';
 import { readStore, writeStore, findPersonByEmail } from '../_lib/store.js';
 
+function uid() {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+}
+
 export async function onRequestGet({ env, data }) {
   const session = data.session;
   if (!session) return json({ error: 'Unauthorized' }, 401);
@@ -55,7 +59,48 @@ export async function onRequestPost({ request, env, data }) {
     );
     const requests = existing.requests.filter(r => r.status !== 'approved' || survivingIds.has(r.id));
 
-    const merged = { instructors: body.instructors, employees: body.employees, requests };
+    // Audit trail: anything present in the stored state but missing from this
+    // save is something an admin just deleted — log who/what/when, so admins
+    // reviewing each other's changes can see what disappeared and by whom.
+    const auditLog = existing.auditLog.slice();
+    const now = Date.now();
+    ['instructors', 'employees'].forEach(category => {
+      const newById = new Map((body[category] || []).map(p => [p.id, p]));
+      (existing[category] || []).forEach(oldPerson => {
+        const newPerson = newById.get(oldPerson.id);
+        if (!newPerson) {
+          auditLog.push({
+            id: uid(),
+            type: 'person-deleted',
+            category,
+            personId: oldPerson.id,
+            personName: oldPerson.name,
+            vacationCount: oldPerson.vacations.length,
+            deletedByEmail: session.email,
+            deletedAt: now
+          });
+          return;
+        }
+        const newVacIds = new Set(newPerson.vacations.map(v => v.id));
+        oldPerson.vacations.forEach(oldVac => {
+          if (!newVacIds.has(oldVac.id)) {
+            auditLog.push({
+              id: uid(),
+              type: 'vacation-deleted',
+              category,
+              personId: oldPerson.id,
+              personName: newPerson.name,
+              startDate: oldVac.startDate,
+              endDate: oldVac.endDate,
+              deletedByEmail: session.email,
+              deletedAt: now
+            });
+          }
+        });
+      });
+    });
+
+    const merged = { instructors: body.instructors, employees: body.employees, requests, auditLog };
     await writeStore(env, merged);
     return json({ ok: true });
   } catch {

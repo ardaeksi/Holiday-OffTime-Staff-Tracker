@@ -5,6 +5,7 @@ export function migrate(d) {
   if (!Array.isArray(d.instructors)) d.instructors = [];
   if (!Array.isArray(d.employees)) d.employees = [];
   if (!Array.isArray(d.requests)) d.requests = [];
+  if (!Array.isArray(d.auditLog)) d.auditLog = [];
   [...d.instructors, ...d.employees].forEach(p => {
     if (typeof p.email !== 'string') p.email = '';
     if (!Array.isArray(p.vacations)) p.vacations = [];
