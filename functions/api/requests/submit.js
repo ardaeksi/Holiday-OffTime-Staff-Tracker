@@ -37,10 +37,18 @@ export async function onRequestPost({ request, env, data }) {
     return json({ error: 'Invalid request' }, 400);
   }
 
-  const { startDate, endDate, note, worksSaturday } = body;
+  const { startDate, endDate, note, worksSaturday, halfDay, halfDayFrom } = body;
   if (!startDate || !endDate) return json({ error: 'Start and end date are required.' }, 400);
   if (endDate < startDate) return json({ error: 'End date must be on or after the start date.' }, 400);
-  if (countOffDays(startDate, endDate, !!worksSaturday) < 1) {
+
+  if (halfDay) {
+    if (startDate !== endDate) return json({ error: 'A half day must be a single date.' }, 400);
+    const d = new Date(startDate + 'T00:00:00');
+    if (isNaN(d) || !isOffDay(d.getDay(), !!worksSaturday)) {
+      return json({ error: 'That date is not a working day.' }, 400);
+    }
+    if (!halfDayFrom) return json({ error: 'A start time is required for a half day.' }, 400);
+  } else if (countOffDays(startDate, endDate, !!worksSaturday) < 1) {
     return json({ error: 'Duration must be at least 1 day.' }, 400);
   }
 
@@ -58,6 +66,8 @@ export async function onRequestPost({ request, env, data }) {
     endDate,
     note: (note || '').trim().slice(0, 500),
     worksSaturday: !!worksSaturday,
+    halfDay: !!halfDay,
+    halfDayFrom: halfDay ? String(halfDayFrom).slice(0, 5) : '',
     status: 'pending',
     createdAt: Date.now(),
     decidedAt: null,

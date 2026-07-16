@@ -92,6 +92,7 @@ export async function onRequestPost({ request, env, data }) {
               personName: newPerson.name,
               startDate: oldVac.startDate,
               endDate: oldVac.endDate,
+              halfDay: !!oldVac.halfDay,
               deletedByEmail: session.email,
               deletedAt: now
             });

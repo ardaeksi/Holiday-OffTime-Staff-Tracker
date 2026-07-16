@@ -47,6 +47,8 @@ export async function onRequestPost({ request, env, data }) {
     endDate: req.endDate,
     note: req.note,
     worksSaturday: req.worksSaturday,
+    halfDay: !!req.halfDay,
+    halfDayFrom: req.halfDay ? req.halfDayFrom : '',
     createdAt: Date.now(),
     fromRequestId: req.id
   };

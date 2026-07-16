@@ -23,6 +23,7 @@
     --black:       #111111;
     --text:        #1a1f1c;
     --orange:      #f97316;
+    --halfday:     #8b5cf6;
     --radius:      12px;
     --radius-sm:   8px;
     --shadow:      0 2px 8px rgba(15,31,51,0.08), 0 1px 2px rgba(15,31,51,0.06);
@@ -182,6 +183,7 @@
   .cal-dh { width: 26px; height: 18px; font-size: 9.5px; font-weight: 700; color: var(--grey-500); text-align: center; display: flex; align-items: center; justify-content: center; }
   .cal-cell { width: 26px; height: 26px; font-size: 11px; font-weight: 500; border-radius: 4px; display: flex; align-items: center; justify-content: center; color: var(--text); }
   .cal-vac { background: var(--orange); color: var(--white); font-weight: 700; border-radius: 3px; }
+  .cal-vac-half { background: var(--halfday); }
   .cal-vac-start { border-radius: 4px 0 0 4px; }
   .cal-vac-end   { border-radius: 0 4px 4px 0; }
   .cal-vac-mid   { border-radius: 0; }
@@ -196,6 +198,7 @@
   .vac-item:hover { border-color: var(--grey-300); }
   .vac-icon { width: 34px; height: 34px; border-radius: 8px; background: linear-gradient(135deg, var(--dark-green), var(--green-light)); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
   .vac-icon.vac-icon-active { background: linear-gradient(135deg, var(--orange), #fb923c); }
+  .vac-icon.vac-icon-half { background: linear-gradient(135deg, var(--halfday), #a78bfa); }
   .vac-icon svg { color: var(--white); }
   .vac-dates { flex: 1; min-width: 0; }
   .vac-date-range { font-size: 14px; font-weight: 700; color: var(--navy); margin: 0 0 2px; }
@@ -204,6 +207,7 @@
   .vac-dur-main { font-size: 13px; font-weight: 700; color: var(--dark-green); white-space: nowrap; }
   .vac-dur-sub  { font-size: 11px; color: var(--grey-500); white-space: nowrap; }
   .vac-active-tag { font-size: 10.5px; font-weight: 700; color: var(--orange); background: #fff7ed; border: 1px solid #fed7aa; border-radius: 10px; padding: 2px 7px; white-space: nowrap; }
+  .hd-tag { font-size: 10px; font-weight: 700; color: var(--white); background: var(--halfday); border-radius: 10px; padding: 2px 7px; white-space: nowrap; display: inline-block; margin-left: 6px; vertical-align: 1px; }
   .req-pending  { color: #92400e; background: #fffbeb; border-color: #fbbf24; }
   .req-approved { color: var(--dark-green); background: var(--green-pale); border-color: var(--green-light); }
   .req-denied   { color: #b3261e; background: #fde8e7; border-color: #f3b9b4; }
@@ -516,6 +520,7 @@
         <label class="radio-option"><input type="radio" name="durationType" value="enddate" id="rEndDate" checked><span class="radio-label">End Date</span></label>
         <label class="radio-option"><input type="radio" name="durationType" value="weeks"   id="rWeeks">           <span class="radio-label">Weeks</span></label>
         <label class="radio-option"><input type="radio" name="durationType" value="days"    id="rDays">            <span class="radio-label">Days</span></label>
+        <label class="radio-option"><input type="radio" name="durationType" value="halfday" id="rHalfDay">         <span class="radio-label">Half Day</span></label>
       </div>
     </div>
 
@@ -532,6 +537,11 @@
       <label for="fDays">Number of Days</label>
       <input type="number" id="fDays" min="1" step="1" placeholder="e.g. 5">
       <p class="field-hint">Starting from the start date above.</p>
+    </div>
+    <div class="field field-hidden" id="fHalfDayWrap">
+      <label for="fHalfDayFrom">Off From</label>
+      <input type="time" id="fHalfDayFrom">
+      <p class="field-hint">Just the start date above, for one day only. Counts as 0.5 days off regardless of the time chosen — this is shown to management so they know when you'll be gone.</p>
     </div>
 
     <div class="field">
@@ -771,7 +781,16 @@
     if (dow === 6) return !!worksSaturday;
     return true;
   }
-  function calcDuration(s, e, worksSaturday) {
+  // A half day is always a single date (s === e) and always counts as 0.5 days
+  // regardless of what time is picked — the time is shown to management, never
+  // used in duration math.
+  function calcDuration(s, e, worksSaturday, halfDay) {
+    if (halfDay) {
+      if (s !== e) return null;
+      const d = new Date(s + 'T00:00:00');
+      if (isNaN(d) || !isOffDay(d.getDay(), worksSaturday)) return null;
+      return { totalDays: 0.5, weeks: 0, remDays: 0.5, hours: 4 };
+    }
     const start = new Date(s+'T00:00:00'), end = new Date(e+'T00:00:00');
     if (end < start) return null;
     let total = 0;
@@ -784,7 +803,12 @@
   function weeksToEndDate(s, w) { const d = new Date(s+'T00:00:00'); d.setDate(d.getDate() + Math.round(w*7) - 1); return d.toISOString().slice(0,10); }
   function daysToEndDate(s, n)  { const d = new Date(s+'T00:00:00'); d.setDate(d.getDate() + n - 1); return d.toISOString().slice(0,10); }
 
-  function daysInYear(s, e, year, worksSaturday) {
+  function daysInYear(s, e, year, worksSaturday, halfDay) {
+    if (halfDay) {
+      const d = new Date(s+'T00:00:00');
+      if (d.getFullYear() !== year) return 0;
+      return isOffDay(d.getDay(), worksSaturday) ? 0.5 : 0;
+    }
     const start = new Date(Math.max(new Date(s+'T00:00:00'), new Date(year,0,1)));
     const end   = new Date(Math.min(new Date(e+'T00:00:00'), new Date(year,11,31)));
     if (end < start) return 0;
@@ -807,28 +831,42 @@
     return ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][+m-1]+' '+(+d)+', '+y;
   }
   function fmtRange(s, e) { return fmtDate(s) + ' – ' + fmtDate(e); }
+  // "HH:MM" (24h, from <input type=time>) → "1:00 PM"
+  function fmtTime(hhmm) {
+    if (!hhmm) return '';
+    const [h, m] = hhmm.split(':').map(Number);
+    const period = h >= 12 ? 'PM' : 'AM';
+    const h12 = h % 12 === 0 ? 12 : h % 12;
+    return `${h12}:${String(m).padStart(2,'0')} ${period}`;
+  }
   function initials(name) { return name.trim().split(/\s+/).map(w=>w[0].toUpperCase()).slice(0,2).join(''); }
   function isActiveToday(s, e) { return s <= TODAY_STR && TODAY_STR <= e; }
   function escHtml(str) { const d = document.createElement('div'); d.textContent = str; return d.innerHTML; }
 
   function yearTotals(person, year) {
     let days = 0, count = 0;
-    person.vacations.forEach(v => { const d = daysInYear(v.startDate, v.endDate, year, v.worksSaturday); if (d>0){days+=d;count++;} });
+    person.vacations.forEach(v => { const d = daysInYear(v.startDate, v.endDate, year, v.worksSaturday, v.halfDay); if (d>0){days+=d;count++;} });
     return { totalDays: days, weeks: Math.floor(days/7), remDays: days%7, hours: days*8, count };
   }
 
   // ── Mini Calendar ──────────────────────────────────────
+  // Map instead of Set so each off-date can carry whether it's a half day —
+  // if any vacation covering that date is a full day, it's shown as full.
   function buildVacDateSet(vacations) {
-    const set = new Set();
+    const map = new Map();
     vacations.forEach(v => {
       let d = new Date(v.startDate+'T00:00:00');
       const end = new Date(v.endDate+'T00:00:00');
       while (d <= end) {
-        if (isOffDay(d.getDay(), v.worksSaturday)) set.add(d.toISOString().slice(0,10));
+        if (isOffDay(d.getDay(), v.worksSaturday)) {
+          const ds = d.toISOString().slice(0,10);
+          const existing = map.get(ds);
+          map.set(ds, { half: existing ? (existing.half && !!v.halfDay) : !!v.halfDay });
+        }
         d.setDate(d.getDate()+1);
       }
     });
-    return set;
+    return map;
   }
 
   function renderMonth(year, month, vacDates) {
@@ -840,13 +878,15 @@
     for (let i=0;i<fdow;i++) cells += `<div class="cal-cell"></div>`;
     for (let d=1;d<=last;d++) {
       const ds = `${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
-      const isV = vacDates.has(ds), isT = ds===TODAY_STR, dow=(fdow+d-1)%7, isW=dow===0||dow===6;
+      const entry = vacDates.get(ds);
+      const isV = !!entry, isT = ds===TODAY_STR, dow=(fdow+d-1)%7, isW=dow===0||dow===6;
       let vc='';
       if (isV) {
         const prev=new Date(ds+'T00:00:00'); prev.setDate(prev.getDate()-1);
         const next=new Date(ds+'T00:00:00'); next.setDate(next.getDate()+1);
         const hp=vacDates.has(prev.toISOString().slice(0,10)), hn=vacDates.has(next.toISOString().slice(0,10));
         vc=!hp&&!hn?'cal-vac':!hp?'cal-vac cal-vac-start':!hn?'cal-vac cal-vac-end':'cal-vac cal-vac-mid';
+        if (entry.half) vc += ' cal-vac-half';
       }
       cells += `<div class="${['cal-cell',vc,isT?'cal-today':'',isW&&!isV?'cal-weekend':''].filter(Boolean).join(' ')}">${d}</div>`;
     }
@@ -992,7 +1032,9 @@
     const when = a.deletedAt ? fmtDate(new Date(a.deletedAt).toISOString().slice(0, 10)) : '';
     const line = a.type === 'person-deleted'
       ? `Removed from tracker (${a.vacationCount} vacation${a.vacationCount === 1 ? '' : 's'} with them)`
-      : `Vacation deleted: ${escHtml(fmtRange(a.startDate, a.endDate))}`;
+      : a.halfDay
+        ? `Half day deleted: ${escHtml(fmtDate(a.startDate))}`
+        : `Vacation deleted: ${escHtml(fmtRange(a.startDate, a.endDate))}`;
 
     return `
     <div class="vac-item">
@@ -1008,8 +1050,10 @@
   // Compact row shared by the Requests dropdown (pending, actionable) and the Log modal (decided, read-only).
   // Category tags are needed here because — unlike the Instructors/Office Employees tabs — this view pools both.
   function renderRequestItem(req) {
-    const dur = calcDuration(req.startDate, req.endDate, req.worksSaturday);
-    const metaLine = `${escHtml(fmtRange(req.startDate, req.endDate))} · ${dur ? escHtml(fmtDur(dur)) : '—'}${req.note ? ' · ' + escHtml(req.note) : ''}`;
+    const dur = calcDuration(req.startDate, req.endDate, req.worksSaturday, req.halfDay);
+    const metaLine = req.halfDay
+      ? `${escHtml(fmtDate(req.startDate))} <span class="hd-tag">Half Day</span> · off from ${fmtTime(req.halfDayFrom)}${req.note ? ' · ' + escHtml(req.note) : ''}`
+      : `${escHtml(fmtRange(req.startDate, req.endDate))} · ${dur ? escHtml(fmtDur(dur)) : '—'}${req.note ? ' · ' + escHtml(req.note) : ''}`;
 
     // A first-time requester has no category yet — Azure has no concept of
     // Instructor vs. Office Employee, so the admin picks it right when approving.
@@ -1153,11 +1197,12 @@
     const pillLbl = { pending: 'Pending', approved: 'Approved', denied: 'Denied' };
     el.innerHTML = `<div class="scal-wrap"><div class="scal-title">My Requests</div><div class="vacation-list">${myRequests.map(r => `
       <div class="vac-item">
-        <div class="vac-icon${r.status==='pending'?' vac-icon-active':''}">
+        <div class="vac-icon${r.halfDay ? ' vac-icon-half' : (r.status==='pending'?' vac-icon-active':'')}">
           <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
         </div>
         <div class="vac-dates">
-          <p class="vac-date-range">${escHtml(fmtRange(r.startDate, r.endDate))}</p>
+          <p class="vac-date-range">${r.halfDay ? escHtml(fmtDate(r.startDate)) : escHtml(fmtRange(r.startDate, r.endDate))}${r.halfDay ? ' <span class="hd-tag">Half Day</span>' : ''}</p>
+          ${r.halfDay ? `<p class="vac-note">Off from ${fmtTime(r.halfDayFrom)}</p>` : ''}
           ${r.note ? `<p class="vac-note">${escHtml(r.note)}</p>` : ''}
           ${r.status==='denied' && r.denialReason ? `<p class="vac-note" style="color:#b3261e">Reason: ${escHtml(r.denialReason)}</p>` : ''}
         </div>
@@ -1172,7 +1217,7 @@
     const isCollapsed = !!collapseState[person.id];
     const onVacNow   = person.vacations.some(v => isActiveToday(v.startDate, v.endDate));
     const durStr     = fmtDur({ weeks: totals.weeks, remDays: totals.remDays, totalDays: totals.totalDays });
-    const allDays    = person.vacations.reduce((s,v)=>{ const d=calcDuration(v.startDate,v.endDate,v.worksSaturday); return s+(d?d.totalDays:0); },0);
+    const allDays    = person.vacations.reduce((s,v)=>{ const d=calcDuration(v.startDate,v.endDate,v.worksSaturday,v.halfDay); return s+(d?d.totalDays:0); },0);
     const cardType   = activeTab === 'instructors' ? 'card-inst' : 'card-emp';
     const addBtnCls  = activeTab === 'instructors' ? 'btn-navy'  : 'btn-primary';
     const editable   = canEdit();
@@ -1181,20 +1226,22 @@
     const vacsHtml   = vacsSorted.length === 0
       ? `<p class="no-vacations">No vacation entries yet.</p>`
       : vacsSorted.map(v => {
-          const dur    = calcDuration(v.startDate, v.endDate, v.worksSaturday);
+          const dur    = calcDuration(v.startDate, v.endDate, v.worksSaturday, v.halfDay);
           const active = isActiveToday(v.startDate, v.endDate);
+          const iconCls = v.halfDay ? 'vac-icon-half' : (active ? 'vac-icon-active' : '');
           return `
           <div class="vac-item" data-vac-id="${v.id}">
-            <div class="vac-icon${active?' vac-icon-active':''}">
+            <div class="vac-icon${iconCls ? ' ' + iconCls : ''}">
               <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
             </div>
             <div class="vac-dates">
-              <p class="vac-date-range">${escHtml(fmtRange(v.startDate, v.endDate))}</p>
+              <p class="vac-date-range">${v.halfDay ? escHtml(fmtDate(v.startDate)) : escHtml(fmtRange(v.startDate, v.endDate))}${v.halfDay ? ' <span class="hd-tag">Half Day</span>' : ''}</p>
+              ${v.halfDay ? `<p class="vac-note">Off from ${fmtTime(v.halfDayFrom)}</p>` : ''}
               ${v.note ? `<p class="vac-note">${escHtml(v.note)}</p>` : ''}
             </div>
             <div class="vac-duration">
               ${active ? `<div style="margin-bottom:4px"><span class="vac-active-tag">● On Vacation Now</span></div>` : ''}
-              <div class="vac-dur-main">${dur ? escHtml(fmtDur(dur)) : '—'}</div>
+              <div class="vac-dur-main">${v.halfDay ? 'Half day' : (dur ? escHtml(fmtDur(dur)) : '—')}</div>
               ${dur ? `<div class="vac-dur-sub">${dur.totalDays} days · ${dur.hours} hrs</div>` : ''}
             </div>
             ${editable ? `<button class="vac-del-btn" data-action="del-vac" title="Delete entry">
@@ -1382,14 +1429,17 @@
   const fEndWrap  = document.getElementById('fEndDateWrap');
   const fWksWrap  = document.getElementById('fWeeksWrap');
   const fDaysWrap = document.getElementById('fDaysWrap');
+  const rHalfDay  = document.getElementById('rHalfDay');
+  const fHalfDayWrap = document.getElementById('fHalfDayWrap');
+  const fHalfDayFrom = document.getElementById('fHalfDayFrom');
 
   let modalIsRequest = false;
 
   function openModal(prefill, catOverride, isRequest) {
     fName.value  = prefill || '';
-    fStart.value = ''; fEnd.value = ''; fWeeks.value = ''; fDays.value = ''; fNote.value = ''; fWorksSat.checked = false;
+    fStart.value = ''; fEnd.value = ''; fWeeks.value = ''; fDays.value = ''; fNote.value = ''; fWorksSat.checked = false; fHalfDayFrom.value = '';
     rEndDate.checked = true;
-    fEndWrap.classList.remove('field-hidden'); fWksWrap.classList.add('field-hidden'); fDaysWrap.classList.add('field-hidden');
+    fEndWrap.classList.remove('field-hidden'); fWksWrap.classList.add('field-hidden'); fDaysWrap.classList.add('field-hidden'); fHalfDayWrap.classList.add('field-hidden');
     const cat = catOverride || activeTab;
     rCatInst.checked = cat === 'instructors';
     rCatEmp.checked  = cat === 'employees';
@@ -1415,23 +1465,30 @@
   overlay.addEventListener('click', e => { if (e.target===overlay) closeModal(); });
   document.addEventListener('keydown', e => { if (e.key==='Escape') { closeModal(); closePersonModal(); closeDenyModal(); } });
 
-  [rEndDate, rWeeks, rDays].forEach(r => r.addEventListener('change', () => {
+  [rEndDate, rWeeks, rDays, rHalfDay].forEach(r => r.addEventListener('change', () => {
     fEndWrap.classList.toggle('field-hidden',  !rEndDate.checked);
     fWksWrap.classList.toggle('field-hidden',  !rWeeks.checked);
     fDaysWrap.classList.toggle('field-hidden', !rDays.checked);
+    fHalfDayWrap.classList.toggle('field-hidden', !rHalfDay.checked);
   }));
 
-  // Resolves the End-Date/Weeks/Days radio group into a concrete {startDate,endDate}
-  // pair — shared by the admin "Add Vacation" save and the staff "Request Time Off" submit.
+  // Resolves the End-Date/Weeks/Days/Half-Day radio group into a concrete
+  // {startDate,endDate} pair — shared by the admin "Add Vacation" save and the
+  // staff "Request Time Off" submit.
   function resolveDurationFromForm() {
     const startDate = fStart.value;
     const note = fNote.value.trim();
     const worksSaturday = fWorksSat.checked;
-    let endDate;
+    const halfDay = rHalfDay.checked;
+    let endDate, halfDayFrom = '';
 
     if (!startDate) { showErr('Please select a start date.'); fStart.focus(); return null; }
 
-    if (rEndDate.checked) {
+    if (halfDay) {
+      endDate = startDate;
+      halfDayFrom = fHalfDayFrom.value;
+      if (!halfDayFrom) { showErr('Please choose what time you\'ll be off from.'); fHalfDayFrom.focus(); return null; }
+    } else if (rEndDate.checked) {
       endDate = fEnd.value;
       if (!endDate)            { showErr('Please select an end date.');                   fEnd.focus();   return null; }
       if (endDate < startDate) { showErr('End date must be on or after the start date.'); fEnd.focus();   return null; }
@@ -1445,9 +1502,14 @@
       endDate = daysToEndDate(startDate, n);
     }
 
-    const dur = calcDuration(startDate, endDate, worksSaturday);
-    if (!dur||dur.totalDays<1) { showErr('Duration must be at least 1 day.'); return null; }
-    return { startDate, endDate, note, worksSaturday, dur };
+    const dur = calcDuration(startDate, endDate, worksSaturday, halfDay);
+    if (!dur) {
+      showErr(halfDay
+        ? 'That date isn\'t a working day — pick a weekday (or a Saturday if "Works on Saturdays" is checked).'
+        : 'Duration must be at least 1 day.');
+      return null;
+    }
+    return { startDate, endDate, note, worksSaturday, halfDay, halfDayFrom, dur };
   }
 
   document.getElementById('saveVacation').addEventListener('click', async () => {
@@ -1460,12 +1522,12 @@
         const resp = await fetch('/api/requests/submit', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ startDate: r.startDate, endDate: r.endDate, note: r.note, worksSaturday: r.worksSaturday })
+          body: JSON.stringify({ startDate: r.startDate, endDate: r.endDate, note: r.note, worksSaturday: r.worksSaturday, halfDay: r.halfDay, halfDayFrom: r.halfDayFrom })
         });
         const j = await resp.json().catch(() => ({}));
         if (!resp.ok) { showErr(j.error || 'Failed to submit request.'); return; }
         closeModal();
-        showToast(`Request submitted: ${fmtDur(r.dur)} off.`);
+        showToast(`Request submitted: ${r.halfDay ? 'Half day' : fmtDur(r.dur)} off.`);
         loadMyRequests();
       } catch { showErr('Failed to submit request. Please try again.'); }
       return;
@@ -1479,14 +1541,14 @@
 
     let person = data[targetKey].find(p => p.name.toLowerCase() === name.toLowerCase());
     if (!person) { person = { id: uid(), name, email: '', vacations: [] }; data[targetKey].push(person); }
-    person.vacations.push({ id: uid(), startDate: r.startDate, endDate: r.endDate, note: r.note, worksSaturday: r.worksSaturday, createdAt: Date.now() });
+    person.vacations.push({ id: uid(), startDate: r.startDate, endDate: r.endDate, note: r.note, worksSaturday: r.worksSaturday, halfDay: r.halfDay, halfDayFrom: r.halfDayFrom, createdAt: Date.now() });
     pendingFlashId = person.id;
 
     // Switch to the saved tab so user can see the result
     if (targetKey !== activeTab) switchTab(targetKey);
 
     await saveData(); closeModal(); render();
-    showToast(`Saved: ${fmtDur(r.dur)} off for ${name}.`);
+    showToast(`Saved: ${r.halfDay ? 'Half day' : fmtDur(r.dur)} off for ${name}.`);
   });
 
   function showErr(msg) { formError.textContent = msg; formError.classList.add('show'); }
