@@ -1,38 +1,58 @@
-const KV_KEY = 'tracker-data';
+import { json } from '../_lib/http.js';
+import { readStore, writeStore } from '../_lib/store.js';
 
-function json(data, status = 200) {
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: {
-      'Content-Type': 'application/json',
-      'Cache-Control': 'no-store'  // never let Cloudflare or the browser cache API responses
-    }
-  });
-}
+export async function onRequestGet({ env, data }) {
+  const session = data.session;
+  if (!session) return json({ error: 'Unauthorized' }, 401);
 
-function checkAuth(request, env) {
-  const pw = request.headers.get('X-App-Password');
-  return env.APP_PASSWORD && pw === env.APP_PASSWORD;
-}
-
-export async function onRequestGet({ request, env }) {
-  if (!checkAuth(request, env)) return json({ error: 'Unauthorized' }, 401);
+  let store;
   try {
-    const raw = await env.TRACKER_KV.get(KV_KEY);
-    return json(raw ? JSON.parse(raw) : { instructors: [], employees: [] });
+    store = await readStore(env);
   } catch {
     return json({ error: 'Storage read failed' }, 500);
   }
+
+  if (session.role === 'admin') {
+    return json({ instructors: store.instructors, employees: store.employees });
+  }
+
+  // Staff only ever see their own linked record — never the full roster.
+  const result = { instructors: [], employees: [] };
+  if (session.personId && session.personCategory) {
+    const person = (store[session.personCategory] || []).find(p => p.id === session.personId);
+    if (person) result[session.personCategory] = [person];
+  }
+  return json(result);
 }
 
-export async function onRequestPost({ request, env }) {
-  if (!checkAuth(request, env)) return json({ error: 'Unauthorized' }, 401);
+export async function onRequestPost({ request, env, data }) {
+  const session = data.session;
+  if (!session) return json({ error: 'Unauthorized' }, 401);
+  if (session.role !== 'admin') return json({ error: 'Forbidden — read-only' }, 403);
+
+  let body;
   try {
-    const body = await request.text();
-    JSON.parse(body); // validate
-    await env.TRACKER_KV.put(KV_KEY, body);
-    return json({ ok: true });
+    body = JSON.parse(await request.text());
   } catch {
     return json({ error: 'Invalid data' }, 400);
+  }
+  if (!Array.isArray(body.instructors) || !Array.isArray(body.employees)) {
+    return json({ error: 'Invalid data' }, 400);
+  }
+
+  try {
+    // The admin client only ever round-trips instructors/employees, so we
+    // must preserve the existing requests array here — otherwise every
+    // admin save would silently wipe all pending/decided time-off requests.
+    const existing = await readStore(env);
+    const merged = {
+      instructors: body.instructors,
+      employees: body.employees,
+      requests: existing.requests
+    };
+    await writeStore(env, merged);
+    return json({ ok: true });
+  } catch {
+    return json({ error: 'Storage write failed' }, 500);
   }
 }

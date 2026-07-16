@@ -53,6 +53,8 @@
   .stat-num { font-size: 22px; font-weight: 800; color: var(--green-light); line-height: 1; transition: color 0.28s ease; }
   .site-header.theme-emp .stat-num { color: var(--white); }
   .stat-lbl { font-size: 11px; color: rgba(255,255,255,0.45); text-transform: uppercase; letter-spacing: 0.5px; margin-top: 3px; }
+  .stat-item[role="button"] { cursor: pointer; border-radius: 8px; transition: background 0.12s; }
+  .stat-item[role="button"]:hover { background: rgba(255,255,255,0.06); }
 
   /* ── STORAGE BAR ─────────────────────────────────────── */
   .storage-bar { background: var(--white); border-bottom: 1px solid var(--grey-100); font-size: 12.5px; }
@@ -79,8 +81,21 @@
   }
   .tab-btn:hover { color: var(--navy); }
   .tab-btn.active { color: var(--dark-green); border-bottom-color: var(--dark-green); font-weight: 700; }
+  .tab-btn[aria-expanded="true"] { color: var(--dark-green); border-bottom-color: var(--dark-green); font-weight: 700; }
   .tab-count { background: var(--grey-100); color: var(--grey-700); border-radius: 10px; padding: 2px 8px; font-size: 11px; font-weight: 700; transition: background 0.15s, color 0.15s; }
-  .tab-btn.active .tab-count { background: var(--green-pale); color: var(--dark-green); }
+  .tab-btn.active .tab-count, .tab-btn[aria-expanded="true"] .tab-count { background: var(--green-pale); color: var(--dark-green); }
+
+  /* ── REQUESTS DROPDOWN ────────────────────────────────── */
+  .tab-req-wrap { position: relative; }
+  .req-dropdown { position: absolute; top: calc(100% + 6px); right: 0; width: 380px; max-width: calc(100vw - 32px); max-height: 420px; overflow-y: auto; background: var(--white); border-radius: var(--radius); box-shadow: var(--shadow-lg); border: 1px solid var(--grey-100); padding: 14px; z-index: 250; display: none; }
+  .req-dropdown.open { display: block; }
+  .req-dropdown-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--grey-700); margin-bottom: 10px; }
+  .req-dropdown-empty { font-size: 13px; color: var(--grey-500); padding: 8px 0; margin: 0; }
+
+  /* ── CATEGORY TAGS (pooled request views) ────────────── */
+  .cat-tag { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.3px; padding: 2px 6px; border-radius: 8px; display: inline-block; margin-left: 6px; vertical-align: 1px; white-space: nowrap; }
+  .cat-tag-instructors { background: var(--navy); color: var(--white); }
+  .cat-tag-employees   { background: var(--dark-green); color: var(--white); }
 
   /* ── MAIN ────────────────────────────────────────────── */
   .container { max-width: 1000px; margin: 0 auto; padding: 28px 24px 120px; }
@@ -189,6 +204,9 @@
   .vac-dur-main { font-size: 13px; font-weight: 700; color: var(--dark-green); white-space: nowrap; }
   .vac-dur-sub  { font-size: 11px; color: var(--grey-500); white-space: nowrap; }
   .vac-active-tag { font-size: 10.5px; font-weight: 700; color: var(--orange); background: #fff7ed; border: 1px solid #fed7aa; border-radius: 10px; padding: 2px 7px; white-space: nowrap; }
+  .req-pending  { color: #92400e; background: #fffbeb; border-color: #fbbf24; }
+  .req-approved { color: var(--dark-green); background: var(--green-pale); border-color: var(--green-light); }
+  .req-denied   { color: #b3261e; background: #fde8e7; border-color: #f3b9b4; }
   .vac-del-btn { background: transparent; border: none; cursor: pointer; color: var(--grey-300); padding: 5px; border-radius: 5px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: color 0.1s, background 0.1s; }
   .vac-del-btn:hover { color: #b3261e; background: #fde8e7; }
   .no-vacations { font-size: 13px; color: var(--grey-500); padding: 8px 0; margin: 0 0 14px; }
@@ -283,7 +301,7 @@
   .login-field label { display: block; font-size: 11.5px; font-weight: 700; color: var(--grey-700); text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 6px; }
   .login-field input { width: 100%; padding: 11px 14px; border-radius: 8px; border: 1.5px solid var(--grey-200); font-size: 15px; font-family: inherit; color: var(--text); background: var(--grey-50); box-sizing: border-box; transition: border-color 0.15s; }
   .login-field input:focus { outline: none; border-color: var(--green); background: var(--white); }
-  .login-btn { width: 100%; padding: 13px; background: var(--dark-green); color: var(--white); border: none; border-radius: 8px; font-size: 15px; font-weight: 700; cursor: pointer; font-family: inherit; transition: background 0.15s; margin-top: 4px; }
+  .login-btn { width: 100%; padding: 13px; background: var(--dark-green); color: var(--white); border: none; border-radius: 8px; font-size: 15px; font-weight: 700; cursor: pointer; font-family: inherit; transition: background 0.15s; margin-top: 4px; display: flex; align-items: center; justify-content: center; gap: 8px; }
   .login-btn:hover:not(:disabled) { background: var(--green); }
   .login-btn:disabled { opacity: 0.55; cursor: not-allowed; }
 
@@ -329,11 +347,15 @@
     <h2 class="login-title">Staff Tracker</h2>
     <p class="login-subtitle">Canadian All Care College — Internal Use</p>
     <div class="login-err" id="loginError"></div>
-    <div class="login-field">
-      <label for="loginPwd">Access Password</label>
-      <input type="password" id="loginPwd" placeholder="Enter password" autocomplete="current-password">
-    </div>
-    <button class="login-btn" id="loginBtn">Sign In</button>
+    <button class="login-btn" id="loginBtn">
+      <svg width="18" height="18" viewBox="0 0 21 21" aria-hidden="true">
+        <rect x="1" y="1" width="9" height="9" fill="#f25022"/>
+        <rect x="11" y="1" width="9" height="9" fill="#7fba00"/>
+        <rect x="1" y="11" width="9" height="9" fill="#00a4ef"/>
+        <rect x="11" y="11" width="9" height="9" fill="#ffb900"/>
+      </svg>
+      Sign in with Microsoft
+    </button>
   </div>
 </div>
 
@@ -366,9 +388,9 @@
         <div class="stat-num" id="statUpcoming">0</div>
         <div class="stat-lbl">Upcoming Vacations</div>
       </div>
-      <div class="stat-item">
+      <div class="stat-item" id="statLogTile" role="button" tabindex="0">
         <div class="stat-num" id="statEntries">0</div>
-        <div class="stat-lbl">Entries This Year</div>
+        <div class="stat-lbl" id="statLogLbl">Entries This Year</div>
       </div>
     </div>
   </div>
@@ -383,8 +405,17 @@
   </div>
 </div>
 
+<!-- ── SIGNED-IN STATUS ─────────────────────────────────── -->
+<div class="storage-bar sb-info" id="userBar" style="display:none">
+  <div class="storage-inner">
+    <span class="storage-icon">👤</span>
+    <span class="storage-text" id="userBarText"></span>
+    <button class="btn btn-xs btn-ghost" id="signOutBtn">Sign Out</button>
+  </div>
+</div>
+
 <!-- ── TABS ────────────────────────────────────────────── -->
-<div class="tabs-bar">
+<div class="tabs-bar" id="tabsBar" data-role="admin">
   <div class="tabs-inner">
     <button class="tab-btn active" data-tab="instructors" id="tabInst">
       Instructors
@@ -394,6 +425,16 @@
       Office Employees
       <span class="tab-count" id="tabCountEmp">0</span>
     </button>
+    <div class="tab-req-wrap">
+      <button class="tab-btn" id="tabReq" type="button" aria-haspopup="true" aria-expanded="false">
+        Requests
+        <span class="tab-count" id="tabCountReq">0</span>
+      </button>
+      <div class="req-dropdown" id="reqDropdown">
+        <div class="req-dropdown-title">Pending Requests</div>
+        <div class="req-dropdown-list" id="reqDropdownList"></div>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -406,11 +447,17 @@
       </svg>
       <input type="text" class="search-input" id="searchInput" placeholder="Search by name…" autocomplete="off">
     </div>
-    <button class="btn btn-primary" id="openAddModal">
+    <button class="btn btn-primary" id="openAddModal" data-role="admin">
       <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
         <path stroke-linecap="round" d="M12 5v14M5 12h14"/>
       </svg>
       Add Vacation / Off Time
+    </button>
+    <button class="btn btn-primary" id="openRequestModal" data-role="staff">
+      <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+        <path stroke-linecap="round" d="M12 5v14M5 12h14"/>
+      </svg>
+      Request Time Off
     </button>
   </div>
 
@@ -426,6 +473,7 @@
   <div class="no-results" id="noResults" style="display:none;">No staff match your search.</div>
 
   <div id="sectionCal"></div>
+  <div id="myRequests" data-role="staff"></div>
 
   <footer>Holiday / Off Time Staff Tracker &nbsp;|&nbsp; Canadian All Care College</footer>
 </main>
@@ -437,11 +485,11 @@
       <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
       </svg>
-      Add Holiday / Off Time
+      <span id="modalTitleText">Add Holiday / Off Time</span>
     </div>
     <div class="form-error" id="formError"></div>
 
-    <div class="field">
+    <div class="field" id="modalStaffCatField">
       <label>Staff Category</label>
       <div class="radio-group">
         <label class="radio-option"><input type="radio" name="staffCat" value="instructors" id="rCatInst" checked><span class="radio-label">Instructor</span></label>
@@ -449,9 +497,9 @@
       </div>
     </div>
 
-    <hr class="form-divider">
+    <hr class="form-divider" id="modalDivider">
 
-    <div class="field">
+    <div class="field" id="modalNameField">
       <label for="fName">Name</label>
       <input type="text" id="fName" placeholder="e.g. Jane Smith" list="nameSuggestions" autocomplete="off">
       <datalist id="nameSuggestions"></datalist>
@@ -505,6 +553,54 @@
   </div>
 </div>
 
+<!-- ── EDIT PERSON MODAL (admin) ────────────────────────── -->
+<div class="modal-overlay" id="personModalOverlay">
+  <div class="modal" role="dialog" aria-modal="true">
+    <div class="modal-title">Edit Staff Member</div>
+    <div class="form-error" id="personFormError"></div>
+    <div class="field">
+      <label for="pName">Name</label>
+      <input type="text" id="pName" autocomplete="off">
+      <p class="field-hint">Once this person has a Sign-in Email and has logged in, their name is kept in sync with their Microsoft account automatically — edits here will be overwritten on their next sign-in.</p>
+    </div>
+    <div class="field">
+      <label for="pEmail">Sign-in Email <span style="font-weight:400;text-transform:none;letter-spacing:0">(links their Microsoft login to this record)</span></label>
+      <input type="text" id="pEmail" placeholder="name@canadianallcare.com" autocomplete="off">
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="closePersonModal">Cancel</button>
+      <button class="btn btn-primary" id="savePerson">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── DENY REQUEST MODAL (admin) ───────────────────────── -->
+<div class="modal-overlay" id="denyModalOverlay">
+  <div class="modal" role="dialog" aria-modal="true">
+    <div class="modal-title">Deny Request</div>
+    <div class="form-error" id="denyFormError"></div>
+    <div class="field">
+      <label for="denyReason">Reason <span style="font-weight:400;text-transform:none;letter-spacing:0">(shown to the staff member)</span></label>
+      <textarea id="denyReason" placeholder="e.g. Overlaps with another approved absence"></textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="closeDenyModal">Cancel</button>
+      <button class="btn btn-primary" id="confirmDeny">Deny Request</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── REQUEST LOG MODAL (admin) ────────────────────────── -->
+<div class="modal-overlay" id="logModalOverlay">
+  <div class="modal" role="dialog" aria-modal="true" style="max-width:560px">
+    <div class="modal-title">Request Log</div>
+    <div class="vacation-list" id="logList"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="closeLogModal">Close</button>
+    </div>
+  </div>
+</div>
+
 <!-- ── TOAST ────────────────────────────────────────────── -->
 <div class="toast" id="toast"></div>
 
@@ -520,12 +616,19 @@
   let activeTab = 'instructors';
   const collapseState = {};
   let pendingFlashId = null;
+  let session = null;
+  let adminRequests = [];
+  let myRequests = [];
 
   function migrate(d) {
     if (!Array.isArray(d.instructors)) d.instructors = [];
     if (!Array.isArray(d.employees))   d.employees   = [];
+    [...d.instructors, ...d.employees].forEach(p => { if (typeof p.email !== 'string') p.email = ''; });
     return d;
   }
+
+  // Admins (and local dev) can edit directly; staff can only view + request.
+  function canEdit() { return IS_LOCAL || (session && session.role === 'admin'); }
 
   // ── localStorage ──────────────────────────────────────
   function loadFromLocalStorage() {
@@ -540,13 +643,8 @@
 
   // ── Cloud Sync ─────────────────────────────────────────
   const IS_LOCAL  = ['localhost','127.0.0.1',''].includes(location.hostname) || location.protocol === 'file:';
-  const PWD_KEY   = 'trackerPwd_v1';
   let syncInFlight = false;
   let notifsShown  = false;
-
-  function getStoredPassword() { return localStorage.getItem(PWD_KEY) || ''; }
-  function storePassword(pw)   { localStorage.setItem(PWD_KEY, pw); }
-  function clearPassword()     { localStorage.removeItem(PWD_KEY); }
 
   function setSyncStatus(state, detail) {
     const bar = document.getElementById('storageBar');
@@ -570,16 +668,11 @@
   }
 
   async function loadFromServer() {
-    const pw = getStoredPassword();
-    if (!pw) { showLogin(); return; }
     setSyncStatus('idle');
     try {
       // cache:'no-store' forces the browser to always fetch fresh — never serve a stale cached response
-      const resp = await fetch('/api/data', {
-        headers: { 'X-App-Password': pw },
-        cache: 'no-store'
-      });
-      if (resp.status === 401) { clearPassword(); showLogin('Wrong password — please sign in again.'); return; }
+      const resp = await fetch('/api/data', { cache: 'no-store' });
+      if (resp.status === 401) { location.href = '/api/auth/login'; return; }
       if (!resp.ok) throw new Error('HTTP ' + resp.status);
       const json = await resp.json();
       // Server is always the source of truth — overwrite local data unconditionally
@@ -599,17 +692,16 @@
 
   async function saveToServer() {
     if (syncInFlight || IS_LOCAL) return;
-    const pw = getStoredPassword();
-    if (!pw) return;
+    if (session && session.role !== 'admin') return;
     syncInFlight = true;
     setSyncStatus('saving');
     try {
       const resp = await fetch('/api/data', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-App-Password': pw },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data)
       });
-      if (resp.status === 401) { clearPassword(); showLogin('Session expired — please sign in again.'); }
+      if (resp.status === 401) { location.href = '/api/auth/login'; }
       else if (!resp.ok) throw new Error();
       else setSyncStatus('ok', new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
     } catch { setSyncStatus('error'); }
@@ -623,35 +715,51 @@
     const ov = document.getElementById('loginOverlay');
     ov.classList.remove('hidden');
     if (errMsg) { const e = document.getElementById('loginError'); e.textContent = errMsg; e.classList.add('show'); }
-    setTimeout(() => document.getElementById('loginPwd').focus(), 80);
   }
   function hideLogin() { document.getElementById('loginOverlay').classList.add('hidden'); }
 
-  async function attemptLogin() {
-    const pw  = document.getElementById('loginPwd').value.trim();
-    const err = document.getElementById('loginError');
-    const btn = document.getElementById('loginBtn');
-    err.classList.remove('show');
-    if (!pw) { err.textContent = 'Please enter the access password.'; err.classList.add('show'); return; }
-    btn.disabled = true; btn.textContent = 'Signing in…';
-    storePassword(pw);
-    await loadFromServer();
-    btn.disabled = false; btn.textContent = 'Sign In';
-    // If overlay is still visible, password was wrong
-    if (!document.getElementById('loginOverlay').classList.contains('hidden')) {
-      clearPassword();
-      err.textContent = 'Incorrect password. Please try again.'; err.classList.add('show');
-      document.getElementById('loginPwd').value = '';
-      document.getElementById('loginPwd').focus();
+  document.getElementById('loginBtn').addEventListener('click', () => { location.href = '/api/auth/login'; });
+  document.getElementById('storageBtn').addEventListener('click', () => { loadFromServer(); });
+  document.getElementById('signOutBtn').addEventListener('click', async () => {
+    try { await fetch('/api/auth/logout', { method: 'POST' }); } catch {}
+    location.href = '/';
+  });
+
+  // ── Role-based view ─────────────────────────────────────
+  function applyRoleView() {
+    const role = session.role;
+    document.body.classList.toggle('role-admin', role === 'admin');
+    document.body.classList.toggle('role-staff', role !== 'admin');
+    document.querySelectorAll('[data-role="admin"]').forEach(el => el.classList.toggle('field-hidden', role !== 'admin'));
+    document.querySelectorAll('[data-role="staff"]').forEach(el => el.classList.toggle('field-hidden', role === 'admin'));
+
+    document.getElementById('userBar').style.display = 'block';
+    document.getElementById('userBarText').textContent =
+      `Signed in as ${session.name} (${role === 'admin' ? 'Administrator' : 'Staff'})`;
+
+    if (role !== 'admin') {
+      const linked = !!session.person;
+      activeTab = linked ? session.person.category : 'instructors';
+      document.getElementById('sectionLabel').textContent = 'My Vacation Time';
+      document.getElementById('emptyTitle').textContent = 'No vacation time logged yet';
+      document.getElementById('emptyMsg').textContent = linked ? 'Submit a time off request below to get started.' : '';
+      // Unlinked staff can still submit a request — approving it is what creates their profile.
     }
   }
 
-  document.getElementById('loginBtn').addEventListener('click', attemptLogin);
-  document.getElementById('loginPwd').addEventListener('keydown', e => { if (e.key === 'Enter') attemptLogin(); });
-  document.getElementById('storageBtn').addEventListener('click', () => {
-    if (!getStoredPassword()) { showLogin(); return; }
-    loadFromServer();
-  });
+  // Shown (on every render, not just once) when a staff account has no matching person record yet.
+  function renderUnlinkedStaffNotice() {
+    document.getElementById('emptyState').style.display = 'none';
+    document.getElementById('noResults').style.display  = 'none';
+    document.getElementById('sectionCal').innerHTML = '';
+    const hasPending = myRequests.some(r => r.status === 'pending');
+    document.getElementById('cardList').innerHTML =
+      `<div class="empty-state" style="display:block"><h3>You're not in the tracker yet</h3>` +
+      (hasPending
+        ? `<p>Your request is pending review — check "My Requests" below for status.</p>`
+        : `<p>Submit a time off request below — an admin will set up your profile the first time they approve it.</p>`
+      ) + `</div>`;
+  }
 
   // ── Helpers ────────────────────────────────────────────
   function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
@@ -790,12 +898,17 @@
     const people = data[activeTab] || [];
     const onVacNow  = people.filter(p => p.vacations.some(v => isActiveToday(v.startDate, v.endDate))).length;
     const upcoming  = people.filter(p => p.vacations.some(v => v.startDate > TODAY_STR)).length;
-    const entries   = people.reduce((s,p) => s + yearTotals(p, THIS_YEAR).count, 0);
     document.getElementById('statTotal').textContent    = people.length;
     document.getElementById('statOnVac').textContent    = onVacNow;
     document.getElementById('statUpcoming').textContent = upcoming;
-    document.getElementById('statEntries').textContent  = entries;
     document.getElementById('statTotalLbl').textContent = activeTab === 'instructors' ? 'Instructors' : 'Office Employees';
+
+    const isAdmin = !!(session && session.role === 'admin');
+    document.getElementById('statLogLbl').textContent = isAdmin ? 'Log' : 'Entries This Year';
+    document.getElementById('statLogTile').setAttribute('aria-disabled', isAdmin ? 'false' : 'true');
+    document.getElementById('statEntries').textContent = isAdmin
+      ? adminRequests.filter(r => r.status !== 'pending').length
+      : people.reduce((s,p) => s + yearTotals(p, THIS_YEAR).count, 0);
   }
 
   function updateTabCounts() {
@@ -805,10 +918,11 @@
 
   function switchTab(tab) {
     activeTab = tab;
-    document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+    document.querySelectorAll('.tab-btn[data-tab]').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
     const hdr = document.getElementById('siteHeader');
     hdr.classList.toggle('theme-inst', tab === 'instructors');
     hdr.classList.toggle('theme-emp',  tab === 'employees');
+
     const label = tab === 'instructors' ? 'Instructors' : 'Office Employees';
     document.getElementById('sectionLabel').textContent = 'All ' + label;
     document.getElementById('emptyTitle').textContent   = 'No ' + label.toLowerCase() + ' yet';
@@ -818,8 +932,9 @@
 
   // ── Render ─────────────────────────────────────────────
   function render() {
-    updateStats();
     updateTabCounts();
+    if (session && session.role !== 'admin' && !session.person) { renderUnlinkedStaffNotice(); return; }
+    updateStats();
 
     const query    = document.getElementById('searchInput').value.trim().toLowerCase();
     const people   = data[activeTab] || [];
@@ -851,6 +966,172 @@
     document.getElementById('nameSuggestions').innerHTML = all.map(p=>`<option value="${escHtml(p.name)}">`).join('');
   }
 
+  // ── Requests dropdown + Log (admin) ─────────────────────
+  async function loadAdminRequests() {
+    try {
+      const resp = await fetch('/api/requests/list?status=all', { cache: 'no-store' });
+      if (resp.ok) { const j = await resp.json(); adminRequests = j.requests || []; }
+    } catch { /* keep last known list */ }
+    document.getElementById('tabCountReq').textContent = adminRequests.filter(r => r.status === 'pending').length;
+  }
+
+  // Compact row shared by the Requests dropdown (pending, actionable) and the Log modal (decided, read-only).
+  // Category tags are needed here because — unlike the Instructors/Office Employees tabs — this view pools both.
+  function renderRequestItem(req) {
+    const dur = calcDuration(req.startDate, req.endDate, req.worksSaturday);
+    const metaLine = `${escHtml(fmtRange(req.startDate, req.endDate))} · ${dur ? escHtml(fmtDur(dur)) : '—'}${req.note ? ' · ' + escHtml(req.note) : ''}`;
+
+    // A first-time requester has no category yet — Azure has no concept of
+    // Instructor vs. Office Employee, so the admin picks it right when approving.
+    const catTag = req.category
+      ? `<span class="cat-tag cat-tag-${req.category}">${req.category === 'instructors' ? 'Instructor' : 'Office Employee'}</span>`
+      : `<span class="cat-tag" style="background:var(--orange);color:var(--white)">New</span>`;
+
+    let rightHtml;
+    if (req.status === 'pending') {
+      rightHtml = req.personId
+        ? `<div style="display:flex;gap:6px;flex-shrink:0">
+            <button class="btn btn-xs btn-primary" data-action="approve-req">Approve</button>
+            <button class="btn btn-xs btn-ghost" data-action="deny-req">Deny</button>
+          </div>`
+        : `<div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0;align-items:flex-end">
+            <div style="display:flex;gap:6px">
+              <button class="btn btn-xs btn-navy" data-action="approve-req" data-category="instructors">Approve as Instructor</button>
+              <button class="btn btn-xs btn-primary" data-action="approve-req" data-category="employees">Approve as Employee</button>
+            </div>
+            <button class="btn btn-xs btn-ghost" data-action="deny-req">Deny</button>
+          </div>`;
+    } else {
+      const label = req.status === 'approved' ? 'Approved' : 'Denied';
+      rightHtml = `<span class="vac-active-tag req-${req.status}" style="flex-shrink:0">${label}</span>`;
+    }
+
+    const decidedLine = req.status !== 'pending'
+      ? `<p class="vac-note">by ${req.decidedByEmail ? escHtml(req.decidedByEmail) : 'unknown'}${req.decidedAt ? ' on ' + fmtDate(new Date(req.decidedAt).toISOString().slice(0, 10)) : ''}</p>`
+      : '';
+    const reasonLine = (req.status === 'denied' && req.denialReason)
+      ? `<p class="vac-note" style="color:#b3261e">Reason: ${escHtml(req.denialReason)}</p>`
+      : '';
+
+    return `
+    <div class="vac-item" data-req-id="${req.id}">
+      <div class="vac-dates">
+        <p class="vac-date-range">${escHtml(req.personName)} ${catTag}</p>
+        <p class="vac-note">${metaLine}</p>
+        ${decidedLine}${reasonLine}
+      </div>
+      ${rightHtml}
+    </div>`;
+  }
+
+  function renderReqDropdownList() {
+    const el = document.getElementById('reqDropdownList');
+    const pending = adminRequests.filter(r => r.status === 'pending');
+    el.innerHTML = pending.length
+      ? pending.map(renderRequestItem).join('')
+      : `<p class="req-dropdown-empty">No pending requests.</p>`;
+  }
+
+  async function openReqDropdown() {
+    document.getElementById('reqDropdown').classList.add('open');
+    document.getElementById('tabReq').setAttribute('aria-expanded', 'true');
+    await loadAdminRequests();
+    renderReqDropdownList();
+  }
+  function closeReqDropdown() {
+    document.getElementById('reqDropdown').classList.remove('open');
+    document.getElementById('tabReq').setAttribute('aria-expanded', 'false');
+  }
+  function toggleReqDropdown() {
+    document.getElementById('reqDropdown').classList.contains('open') ? closeReqDropdown() : openReqDropdown();
+  }
+
+  document.getElementById('tabReq').addEventListener('click', e => { e.stopPropagation(); toggleReqDropdown(); });
+  document.getElementById('reqDropdownList').addEventListener('click', e => {
+    const item = e.target.closest('[data-req-id]');
+    const actionEl = e.target.closest('[data-action]');
+    if (!item || !actionEl) return;
+    if (actionEl.dataset.action === 'approve-req') approveRequest(item.dataset.reqId, actionEl.dataset.category || null);
+    if (actionEl.dataset.action === 'deny-req')    openDenyModal(item.dataset.reqId);
+  });
+  document.addEventListener('click', e => {
+    if (!document.getElementById('reqDropdown').classList.contains('open')) return;
+    if (e.target.closest('.tab-req-wrap')) return;
+    closeReqDropdown();
+  });
+
+  async function openLogModal() {
+    await loadAdminRequests();
+    const el = document.getElementById('logList');
+    const decided = adminRequests.filter(r => r.status !== 'pending');
+    el.innerHTML = decided.length
+      ? decided.map(renderRequestItem).join('')
+      : `<p class="no-vacations">No decided requests yet.</p>`;
+    document.getElementById('logModalOverlay').classList.add('open');
+  }
+  function closeLogModal() { document.getElementById('logModalOverlay').classList.remove('open'); }
+
+  document.getElementById('statLogTile').addEventListener('click', () => {
+    if (session && session.role === 'admin') openLogModal();
+  });
+  document.getElementById('statLogTile').addEventListener('keydown', e => {
+    if ((e.key === 'Enter' || e.key === ' ') && session && session.role === 'admin') { e.preventDefault(); openLogModal(); }
+  });
+  document.getElementById('closeLogModal').addEventListener('click', closeLogModal);
+  document.getElementById('logModalOverlay').addEventListener('click', e => {
+    if (e.target === document.getElementById('logModalOverlay')) closeLogModal();
+  });
+
+  async function approveRequest(reqId, category) {
+    try {
+      const resp = await fetch('/api/requests/approve', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ requestId: reqId, category })
+      });
+      const j = await resp.json().catch(() => ({}));
+      if (!resp.ok) { showToast(j.error || 'Failed to approve request.'); return; }
+      showToast('Request approved.');
+      await loadFromServer();
+      await loadAdminRequests();
+      render();
+      renderReqDropdownList();
+    } catch { showToast('Failed to approve request.'); }
+  }
+
+  // ── My Requests (staff) ─────────────────────────────────
+  async function loadMyRequests() {
+    try {
+      const resp = await fetch('/api/requests/mine', { cache: 'no-store' });
+      if (resp.ok) { const j = await resp.json(); myRequests = j.requests || []; }
+    } catch { /* keep last known list */ }
+    renderMyRequests();
+    // The unlinked-staff notice in #cardList depends on myRequests (has a pending one? show that instead
+    // of the generic prompt) — re-render so it reflects freshly-loaded data, not the empty initial state.
+    if (session && session.role !== 'admin' && !session.person) render();
+  }
+
+  function renderMyRequests() {
+    const el = document.getElementById('myRequests');
+    if (!el || !session || session.role === 'admin') return;
+    if (!myRequests.length) { el.innerHTML = ''; return; }
+    const pillLbl = { pending: 'Pending', approved: 'Approved', denied: 'Denied' };
+    el.innerHTML = `<div class="scal-wrap"><div class="scal-title">My Requests</div><div class="vacation-list">${myRequests.map(r => `
+      <div class="vac-item">
+        <div class="vac-icon${r.status==='pending'?' vac-icon-active':''}">
+          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+        </div>
+        <div class="vac-dates">
+          <p class="vac-date-range">${escHtml(fmtRange(r.startDate, r.endDate))}</p>
+          ${r.note ? `<p class="vac-note">${escHtml(r.note)}</p>` : ''}
+          ${r.status==='denied' && r.denialReason ? `<p class="vac-note" style="color:#b3261e">Reason: ${escHtml(r.denialReason)}</p>` : ''}
+        </div>
+        <div class="vac-duration">
+          <span class="vac-active-tag req-${r.status}">${pillLbl[r.status] || r.status}</span>
+        </div>
+      </div>`).join('')}</div></div>`;
+  }
+
   function renderCard(person) {
     const totals     = yearTotals(person, THIS_YEAR);
     const isCollapsed = !!collapseState[person.id];
@@ -859,6 +1140,7 @@
     const allDays    = person.vacations.reduce((s,v)=>{ const d=calcDuration(v.startDate,v.endDate,v.worksSaturday); return s+(d?d.totalDays:0); },0);
     const cardType   = activeTab === 'instructors' ? 'card-inst' : 'card-emp';
     const addBtnCls  = activeTab === 'instructors' ? 'btn-navy'  : 'btn-primary';
+    const editable   = canEdit();
 
     const vacsSorted = [...person.vacations].sort((a,b) => b.startDate.localeCompare(a.startDate));
     const vacsHtml   = vacsSorted.length === 0
@@ -880,9 +1162,9 @@
               <div class="vac-dur-main">${dur ? escHtml(fmtDur(dur)) : '—'}</div>
               ${dur ? `<div class="vac-dur-sub">${dur.totalDays} days · ${dur.hours} hrs</div>` : ''}
             </div>
-            <button class="vac-del-btn" data-action="del-vac" title="Delete entry">
+            ${editable ? `<button class="vac-del-btn" data-action="del-vac" title="Delete entry">
               <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
-            </button>
+            </button>` : ''}
           </div>`;
         }).join('');
 
@@ -894,7 +1176,7 @@
           ${onVacNow ? `<div class="on-vacation-dot"></div>` : ''}
         </div>
         <div class="card-info">
-          <p class="card-name">${escHtml(person.name)}</p>
+          <p class="card-name">${escHtml(person.name)}${editable ? ` <button class="btn btn-xs btn-ghost" data-action="edit-person" title="Edit name / sign-in email" style="margin-left:6px;vertical-align:2px">✎</button>` : ''}</p>
           <p class="card-meta">${totals.count} entr${totals.count===1?'y':'ies'} in ${THIS_YEAR} · ${person.vacations.length} total</p>
         </div>
         ${renderCountdownBadge(person)}
@@ -916,10 +1198,10 @@
             ${THIS_YEAR}: <strong>${totals.totalDays} days / ${totals.hours} hrs</strong>
             ${allDays!==totals.totalDays?`&nbsp;·&nbsp; All-time: <strong>${allDays} days / ${allDays*8} hrs</strong>`:''}
           </span>
-          <button class="btn btn-sm ${addBtnCls}" data-action="add-vac-for" data-name="${escHtml(person.name)}">
+          ${editable ? `<button class="btn btn-sm ${addBtnCls}" data-action="add-vac-for" data-name="${escHtml(person.name)}">
             <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" d="M12 5v14M5 12h14"/></svg>
             Add Vacation
-          </button>
+          </button>` : ''}
         </div>
       </div>
     </div>`;
@@ -1002,6 +1284,11 @@
       card.classList.toggle('card-collapsed', !!collapseState[personId]);
       return;
     }
+    if (action === 'edit-person') {
+      e.stopPropagation();
+      openPersonModal(personId);
+      return;
+    }
     if (action === 'del-vac') {
       e.stopPropagation();
       const vacEl = e.target.closest('.vac-item');
@@ -1024,7 +1311,7 @@
   });
 
   // ── Tab Buttons ────────────────────────────────────────
-  document.querySelectorAll('.tab-btn').forEach(btn => btn.addEventListener('click', () => switchTab(btn.dataset.tab)));
+  document.querySelectorAll('.tab-btn[data-tab]').forEach(btn => btn.addEventListener('click', () => switchTab(btn.dataset.tab)));
 
   // ── Search ─────────────────────────────────────────────
   document.getElementById('searchInput').addEventListener('input', render);
@@ -1048,7 +1335,9 @@
   const fWksWrap  = document.getElementById('fWeeksWrap');
   const fDaysWrap = document.getElementById('fDaysWrap');
 
-  function openModal(prefill, catOverride) {
+  let modalIsRequest = false;
+
+  function openModal(prefill, catOverride, isRequest) {
     fName.value  = prefill || '';
     fStart.value = ''; fEnd.value = ''; fWeeks.value = ''; fDays.value = ''; fNote.value = ''; fWorksSat.checked = false;
     rEndDate.checked = true;
@@ -1057,17 +1346,26 @@
     rCatInst.checked = cat === 'instructors';
     rCatEmp.checked  = cat === 'employees';
     formError.classList.remove('show');
+
+    modalIsRequest = !!isRequest;
+    document.getElementById('modalTitleText').textContent = modalIsRequest ? 'Request Time Off' : 'Add Holiday / Off Time';
+    document.getElementById('saveVacation').textContent   = modalIsRequest ? 'Submit Request' : 'Save Entry';
+    document.getElementById('modalStaffCatField').classList.toggle('field-hidden', modalIsRequest);
+    document.getElementById('modalNameField').classList.toggle('field-hidden', modalIsRequest);
+    document.getElementById('modalDivider').classList.toggle('field-hidden', modalIsRequest);
+
     overlay.classList.add('open');
-    setTimeout(() => (prefill ? fStart : fName).focus(), 50);
+    setTimeout(() => (modalIsRequest || prefill ? fStart : fName).focus(), 50);
     const all = [...data.instructors, ...data.employees];
     document.getElementById('nameSuggestions').innerHTML = all.map(p=>`<option value="${escHtml(p.name)}">`).join('');
   }
   function closeModal() { overlay.classList.remove('open'); }
 
   document.getElementById('openAddModal').addEventListener('click', () => openModal(''));
+  document.getElementById('openRequestModal').addEventListener('click', () => openModal('', null, true));
   document.getElementById('closeModal').addEventListener('click', closeModal);
   overlay.addEventListener('click', e => { if (e.target===overlay) closeModal(); });
-  document.addEventListener('keydown', e => { if (e.key==='Escape') closeModal(); });
+  document.addEventListener('keydown', e => { if (e.key==='Escape') { closeModal(); closePersonModal(); closeDenyModal(); } });
 
   [rEndDate, rWeeks, rDays].forEach(r => r.addEventListener('change', () => {
     fEndWrap.classList.toggle('field-hidden',  !rEndDate.checked);
@@ -1075,48 +1373,150 @@
     fDaysWrap.classList.toggle('field-hidden', !rDays.checked);
   }));
 
-  document.getElementById('saveVacation').addEventListener('click', async () => {
-    formError.classList.remove('show');
-    const name      = fName.value.trim();
+  // Resolves the End-Date/Weeks/Days radio group into a concrete {startDate,endDate}
+  // pair — shared by the admin "Add Vacation" save and the staff "Request Time Off" submit.
+  function resolveDurationFromForm() {
     const startDate = fStart.value;
-    const note      = fNote.value.trim();
+    const note = fNote.value.trim();
     const worksSaturday = fWorksSat.checked;
-    const targetKey = rCatInst.checked ? 'instructors' : 'employees';
     let endDate;
 
-    if (!name)      { showErr('Please enter a name.');       fName.focus();  return; }
-    if (!startDate) { showErr('Please select a start date.'); fStart.focus(); return; }
+    if (!startDate) { showErr('Please select a start date.'); fStart.focus(); return null; }
 
     if (rEndDate.checked) {
       endDate = fEnd.value;
-      if (!endDate)            { showErr('Please select an end date.');                   fEnd.focus();   return; }
-      if (endDate < startDate) { showErr('End date must be on or after the start date.'); fEnd.focus();   return; }
+      if (!endDate)            { showErr('Please select an end date.');                   fEnd.focus();   return null; }
+      if (endDate < startDate) { showErr('End date must be on or after the start date.'); fEnd.focus();   return null; }
     } else if (rWeeks.checked) {
       const w = parseFloat(fWeeks.value);
-      if (isNaN(w)||w<=0)      { showErr('Please enter a valid number of weeks.');        fWeeks.focus(); return; }
+      if (isNaN(w)||w<=0)      { showErr('Please enter a valid number of weeks.');        fWeeks.focus(); return null; }
       endDate = weeksToEndDate(startDate, w);
     } else {
       const n = parseInt(fDays.value);
-      if (isNaN(n)||n<1)       { showErr('Please enter a valid number of days.');         fDays.focus();  return; }
+      if (isNaN(n)||n<1)       { showErr('Please enter a valid number of days.');         fDays.focus();  return null; }
       endDate = daysToEndDate(startDate, n);
     }
 
     const dur = calcDuration(startDate, endDate, worksSaturday);
-    if (!dur||dur.totalDays<1) { showErr('Duration must be at least 1 day.'); return; }
+    if (!dur||dur.totalDays<1) { showErr('Duration must be at least 1 day.'); return null; }
+    return { startDate, endDate, note, worksSaturday, dur };
+  }
+
+  document.getElementById('saveVacation').addEventListener('click', async () => {
+    formError.classList.remove('show');
+
+    if (modalIsRequest) {
+      const r = resolveDurationFromForm();
+      if (!r) return;
+      try {
+        const resp = await fetch('/api/requests/submit', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ startDate: r.startDate, endDate: r.endDate, note: r.note, worksSaturday: r.worksSaturday })
+        });
+        const j = await resp.json().catch(() => ({}));
+        if (!resp.ok) { showErr(j.error || 'Failed to submit request.'); return; }
+        closeModal();
+        showToast(`Request submitted: ${fmtDur(r.dur)} off.`);
+        loadMyRequests();
+      } catch { showErr('Failed to submit request. Please try again.'); }
+      return;
+    }
+
+    const name = fName.value.trim();
+    if (!name) { showErr('Please enter a name.'); fName.focus(); return; }
+    const r = resolveDurationFromForm();
+    if (!r) return;
+    const targetKey = rCatInst.checked ? 'instructors' : 'employees';
 
     let person = data[targetKey].find(p => p.name.toLowerCase() === name.toLowerCase());
-    if (!person) { person = { id: uid(), name, vacations: [] }; data[targetKey].push(person); }
-    person.vacations.push({ id: uid(), startDate, endDate, note, worksSaturday, createdAt: Date.now() });
+    if (!person) { person = { id: uid(), name, email: '', vacations: [] }; data[targetKey].push(person); }
+    person.vacations.push({ id: uid(), startDate: r.startDate, endDate: r.endDate, note: r.note, worksSaturday: r.worksSaturday, createdAt: Date.now() });
     pendingFlashId = person.id;
 
     // Switch to the saved tab so user can see the result
     if (targetKey !== activeTab) switchTab(targetKey);
 
     await saveData(); closeModal(); render();
-    showToast(`Saved: ${fmtDur(dur)} off for ${name}.`);
+    showToast(`Saved: ${fmtDur(r.dur)} off for ${name}.`);
   });
 
   function showErr(msg) { formError.textContent = msg; formError.classList.add('show'); }
+
+  // ── Edit Person Modal (admin) ───────────────────────────
+  const personOverlay     = document.getElementById('personModalOverlay');
+  const pName              = document.getElementById('pName');
+  const pEmail             = document.getElementById('pEmail');
+  const personFormError    = document.getElementById('personFormError');
+  let personTargetId = null;
+  let personTargetCat = null;
+
+  function openPersonModal(personId) {
+    const person = (data[activeTab] || []).find(p => p.id === personId);
+    if (!person) return;
+    personTargetId = personId;
+    personTargetCat = activeTab;
+    pName.value = person.name;
+    pEmail.value = person.email || '';
+    personFormError.classList.remove('show');
+    personOverlay.classList.add('open');
+    setTimeout(() => pEmail.focus(), 50);
+  }
+  function closePersonModal() { personOverlay.classList.remove('open'); personTargetId = null; }
+  document.getElementById('closePersonModal').addEventListener('click', closePersonModal);
+  personOverlay.addEventListener('click', e => { if (e.target === personOverlay) closePersonModal(); });
+
+  document.getElementById('savePerson').addEventListener('click', async () => {
+    const person = (data[personTargetCat] || []).find(p => p.id === personTargetId);
+    if (!person) { closePersonModal(); return; }
+    const name  = pName.value.trim();
+    const email = pEmail.value.trim().toLowerCase();
+    personFormError.classList.remove('show');
+    if (!name) { personFormError.textContent = 'Name is required.'; personFormError.classList.add('show'); return; }
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      personFormError.textContent = 'Please enter a valid email address.'; personFormError.classList.add('show'); return;
+    }
+    person.name = name;
+    person.email = email;
+    await saveData();
+    closePersonModal();
+    render();
+    showToast(`Updated ${name}.`);
+  });
+
+  // ── Deny Request Modal (admin) ──────────────────────────
+  const denyOverlay = document.getElementById('denyModalOverlay');
+  let denyTargetId = null;
+
+  function openDenyModal(reqId) {
+    denyTargetId = reqId;
+    document.getElementById('denyReason').value = '';
+    document.getElementById('denyFormError').classList.remove('show');
+    denyOverlay.classList.add('open');
+    setTimeout(() => document.getElementById('denyReason').focus(), 50);
+  }
+  function closeDenyModal() { denyOverlay.classList.remove('open'); denyTargetId = null; }
+  document.getElementById('closeDenyModal').addEventListener('click', closeDenyModal);
+  denyOverlay.addEventListener('click', e => { if (e.target === denyOverlay) closeDenyModal(); });
+
+  document.getElementById('confirmDeny').addEventListener('click', async () => {
+    const reason = document.getElementById('denyReason').value.trim();
+    const err = document.getElementById('denyFormError');
+    err.classList.remove('show');
+    if (!reason) { err.textContent = 'Please enter a reason.'; err.classList.add('show'); return; }
+    try {
+      const resp = await fetch('/api/requests/deny', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ requestId: denyTargetId, reason })
+      });
+      if (!resp.ok) throw new Error();
+      showToast('Request denied.');
+      closeDenyModal();
+      await loadAdminRequests();
+      render();
+    } catch { err.textContent = 'Failed to deny request.'; err.classList.add('show'); }
+  });
 
   // ── Toast ──────────────────────────────────────────────
   let toastTimer;
@@ -1187,18 +1587,33 @@
     notifsShown = true;
     setSyncStatus('local');
   } else {
-    const storedPw = getStoredPassword();
-    if (storedPw) {
-      // Show a neutral loading state — do NOT render from localStorage first,
-      // because other users may have changed data since our last visit.
-      // Always wait for the server response before showing anything.
-      document.getElementById('cardList').innerHTML =
-        '<div style="text-align:center;padding:60px 20px;color:var(--grey-500);font-size:14px">Syncing with server…</div>';
-      setSyncStatus('idle');
-      loadFromServer();
-    } else {
-      showLogin();
-    }
+    // Show a neutral loading state — do NOT render from localStorage first,
+    // because other users may have changed data since our last visit.
+    // Always wait for the server response before showing anything.
+    document.getElementById('cardList').innerHTML =
+      '<div style="text-align:center;padding:60px 20px;color:var(--grey-500);font-size:14px">Loading…</div>';
+    setSyncStatus('idle');
+    (async () => {
+      const params = new URLSearchParams(location.search);
+      const loginFailed = params.get('loginError');
+      if (loginFailed) history.replaceState(null, '', location.pathname);
+
+      let me;
+      try {
+        const resp = await fetch('/api/auth/me', { cache: 'no-store' });
+        me = await resp.json();
+      } catch { me = { authenticated: false }; }
+
+      if (!me.authenticated) {
+        showLogin(loginFailed ? 'Sign-in failed. Please try again.' : '');
+        return;
+      }
+      session = me;
+      applyRoleView();
+      await loadFromServer();
+      if (session.role === 'admin') loadAdminRequests();
+      else loadMyRequests();
+    })();
   }
 })();
 </script>
