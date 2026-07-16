@@ -1302,7 +1302,15 @@
         delete collapseState[personId];
         showToast(`Removed ${person.name} — no remaining entries.`);
       } else { showToast('Vacation entry deleted.'); }
-      saveData(); render(); return;
+      (async () => {
+        await saveData();
+        render();
+        // Deleting a vacation that came from an approved request clears that
+        // request server-side too (see functions/api/data.js) — refresh so the
+        // Requests badge/dropdown and Log stop showing it.
+        if (session && session.role === 'admin') { await loadAdminRequests(); renderReqDropdownList(); }
+      })();
+      return;
     }
     if (action === 'add-vac-for') {
       e.stopPropagation();

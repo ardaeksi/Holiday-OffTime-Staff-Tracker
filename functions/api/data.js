@@ -45,11 +45,17 @@ export async function onRequestPost({ request, env, data }) {
     // must preserve the existing requests array here — otherwise every
     // admin save would silently wipe all pending/decided time-off requests.
     const existing = await readStore(env);
-    const merged = {
-      instructors: body.instructors,
-      employees: body.employees,
-      requests: existing.requests
-    };
+
+    // If an approved request's resulting vacation entry was deleted (directly,
+    // or by deleting the whole person), drop the request record too — otherwise
+    // it keeps showing as "Approved" in the Log even though the time off is gone.
+    const survivingIds = new Set();
+    [...body.instructors, ...body.employees].forEach(p =>
+      (p.vacations || []).forEach(v => { if (v.fromRequestId) survivingIds.add(v.fromRequestId); })
+    );
+    const requests = existing.requests.filter(r => r.status !== 'approved' || survivingIds.has(r.id));
+
+    const merged = { instructors: body.instructors, employees: body.employees, requests };
     await writeStore(env, merged);
     return json({ ok: true });
   } catch {
