@@ -719,7 +719,25 @@
     syncInFlight = false;
   }
 
-  async function saveData() { saveToLocalStorage(); await saveToServer(); }
+  // Every admin write goes through here with a `mutate(fresh)` callback rather
+  // than mutating the in-memory `data` directly beforehand. Approvals/denials
+  // write straight to storage via their own endpoints, outside this flow — so
+  // if this save just POSTed whatever the browser already had in memory, it
+  // could silently overwrite a concurrent approval (and the vacation it just
+  // created) with a stale snapshot from before that approval happened. Re-
+  // fetching right before applying the change closes that window down to a
+  // network round-trip instead of "however long this tab has been open."
+  async function saveData(mutate) {
+    if (mutate && !IS_LOCAL) {
+      try {
+        const resp = await fetch('/api/data', { cache: 'no-store' });
+        if (resp.ok) data = migrate(await resp.json());
+      } catch { /* fall back to whatever `data` currently holds */ }
+    }
+    if (mutate) mutate(data);
+    saveToLocalStorage();
+    await saveToServer();
+  }
 
   // ── Login ──────────────────────────────────────────────
   function showLogin(errMsg) {
@@ -1378,14 +1396,20 @@
       const vac = person.vacations.find(v => v.id === vacEl.dataset.vacId);
       if (!vac) return;
       if (!confirm(`Delete vacation ${fmtRange(vac.startDate, vac.endDate)} for ${person.name}?`)) return;
-      person.vacations = person.vacations.filter(v => v.id !== vac.id);
-      if (!person.vacations.length) {
-        data[activeTab] = data[activeTab].filter(p => p.id !== personId);
-        delete collapseState[personId];
-        showToast(`Removed ${person.name} — no remaining entries.`);
-      } else { showToast('Vacation entry deleted.'); }
+      const cat = activeTab, vacId = vac.id, targetPersonId = personId, personName = person.name;
+      let removedPerson = false, stillExists = true;
       (async () => {
-        await saveData();
+        await saveData(fresh => {
+          const p = (fresh[cat] || []).find(pp => pp.id === targetPersonId);
+          if (!p) { stillExists = false; return; }
+          p.vacations = p.vacations.filter(v => v.id !== vacId);
+          if (!p.vacations.length) {
+            fresh[cat] = fresh[cat].filter(pp => pp.id !== targetPersonId);
+            delete collapseState[targetPersonId];
+            removedPerson = true;
+          }
+        });
+        showToast(!stillExists ? 'That entry was already removed.' : (removedPerson ? `Removed ${personName} — no remaining entries.` : 'Vacation entry deleted.'));
         render();
         // Deleting a vacation that came from an approved request clears that
         // request server-side too, and the deletion itself gets logged (see
@@ -1539,15 +1563,18 @@
     if (!r) return;
     const targetKey = rCatInst.checked ? 'instructors' : 'employees';
 
-    let person = data[targetKey].find(p => p.name.toLowerCase() === name.toLowerCase());
-    if (!person) { person = { id: uid(), name, email: '', vacations: [] }; data[targetKey].push(person); }
-    person.vacations.push({ id: uid(), startDate: r.startDate, endDate: r.endDate, note: r.note, worksSaturday: r.worksSaturday, halfDay: r.halfDay, halfDayFrom: r.halfDayFrom, createdAt: Date.now() });
-    pendingFlashId = person.id;
+    let flashId = null;
+    await saveData(fresh => {
+      let person = fresh[targetKey].find(p => p.name.toLowerCase() === name.toLowerCase());
+      if (!person) { person = { id: uid(), name, email: '', vacations: [] }; fresh[targetKey].push(person); }
+      person.vacations.push({ id: uid(), startDate: r.startDate, endDate: r.endDate, note: r.note, worksSaturday: r.worksSaturday, halfDay: r.halfDay, halfDayFrom: r.halfDayFrom, createdAt: Date.now() });
+      flashId = person.id;
+    });
+    pendingFlashId = flashId;
+    closeModal();
 
     // Switch to the saved tab so user can see the result
-    if (targetKey !== activeTab) switchTab(targetKey);
-
-    await saveData(); closeModal(); render();
+    if (targetKey !== activeTab) switchTab(targetKey); else render();
     showToast(`Saved: ${r.halfDay ? 'Half day' : fmtDur(r.dur)} off for ${name}.`);
   });
 
@@ -1577,8 +1604,6 @@
   personOverlay.addEventListener('click', e => { if (e.target === personOverlay) closePersonModal(); });
 
   document.getElementById('savePerson').addEventListener('click', async () => {
-    const person = (data[personTargetCat] || []).find(p => p.id === personTargetId);
-    if (!person) { closePersonModal(); return; }
     const name  = pName.value.trim();
     const email = pEmail.value.trim().toLowerCase();
     personFormError.classList.remove('show');
@@ -1586,12 +1611,18 @@
     if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       personFormError.textContent = 'Please enter a valid email address.'; personFormError.classList.add('show'); return;
     }
-    person.name = name;
-    person.email = email;
-    await saveData();
+    const targetCat = personTargetCat, targetId = personTargetId;
+    let found = false;
+    await saveData(fresh => {
+      const p = (fresh[targetCat] || []).find(pp => pp.id === targetId);
+      if (!p) return;
+      p.name = name;
+      p.email = email;
+      found = true;
+    });
     closePersonModal();
     render();
-    showToast(`Updated ${name}.`);
+    showToast(found ? `Updated ${name}.` : 'That person no longer exists.');
   });
 
   // ── Deny Request Modal (admin) ──────────────────────────
@@ -1625,6 +1656,7 @@
       closeDenyModal();
       await loadAdminRequests();
       render();
+      renderReqDropdownList();
     } catch { err.textContent = 'Failed to deny request.'; err.classList.add('show'); }
   });
 
