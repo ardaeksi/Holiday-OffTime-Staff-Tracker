@@ -208,6 +208,12 @@
   .vac-dur-sub  { font-size: 11px; color: var(--grey-500); white-space: nowrap; }
   .vac-active-tag { font-size: 10.5px; font-weight: 700; color: var(--orange); background: #fff7ed; border: 1px solid #fed7aa; border-radius: 10px; padding: 2px 7px; white-space: nowrap; }
   .hd-tag { font-size: 10px; font-weight: 700; color: var(--white); background: var(--halfday); border-radius: 10px; padding: 2px 7px; white-space: nowrap; display: inline-block; margin-left: 6px; vertical-align: 1px; }
+
+  /* ── REQUEST ITEMS (dropdown + Log) — stacked so action buttons never
+     squeeze the text column down to nothing on narrow widths ────────── */
+  .req-item { display: flex; flex-direction: column; gap: 8px; padding: 11px 14px; background: var(--grey-50); border-radius: 8px; border: 1px solid var(--grey-100); transition: border-color 0.1s; }
+  .req-item:hover { border-color: var(--grey-300); }
+  .req-item-actions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 6px; }
   .req-pending  { color: #92400e; background: #fffbeb; border-color: #fbbf24; }
   .req-approved { color: var(--dark-green); background: var(--green-pale); border-color: var(--green-light); }
   .req-denied   { color: #b3261e; background: #fde8e7; border-color: #f3b9b4; }
@@ -1079,23 +1085,21 @@
       ? `<span class="cat-tag cat-tag-${req.category}">${req.category === 'instructors' ? 'Instructor' : 'Office Employee'}</span>`
       : `<span class="cat-tag" style="background:var(--orange);color:var(--white)">New</span>`;
 
-    let rightHtml;
+    let actionsHtml;
     if (req.status === 'pending') {
-      rightHtml = req.personId
-        ? `<div style="display:flex;gap:6px;flex-shrink:0">
+      actionsHtml = req.personId
+        ? `<div class="req-item-actions">
             <button class="btn btn-xs btn-primary" data-action="approve-req">Approve</button>
             <button class="btn btn-xs btn-ghost" data-action="deny-req">Deny</button>
           </div>`
-        : `<div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0;align-items:flex-end">
-            <div style="display:flex;gap:6px">
-              <button class="btn btn-xs btn-navy" data-action="approve-req" data-category="instructors">Approve as Instructor</button>
-              <button class="btn btn-xs btn-primary" data-action="approve-req" data-category="employees">Approve as Employee</button>
-            </div>
+        : `<div class="req-item-actions">
+            <button class="btn btn-xs btn-navy" data-action="approve-req" data-category="instructors">Approve as Instructor</button>
+            <button class="btn btn-xs btn-primary" data-action="approve-req" data-category="employees">Approve as Employee</button>
             <button class="btn btn-xs btn-ghost" data-action="deny-req">Deny</button>
           </div>`;
     } else {
       const label = req.status === 'approved' ? 'Approved' : 'Denied';
-      rightHtml = `<span class="vac-active-tag req-${req.status}" style="flex-shrink:0">${label}</span>`;
+      actionsHtml = `<div class="req-item-actions"><span class="vac-active-tag req-${req.status}">${label}</span></div>`;
     }
 
     const decidedLine = req.status !== 'pending'
@@ -1105,14 +1109,17 @@
       ? `<p class="vac-note" style="color:#b3261e">Reason: ${escHtml(req.denialReason)}</p>`
       : '';
 
+    // Stacked, not side-by-side with the buttons — a wide action row (e.g. the
+    // three buttons for a first-time "New" request) would otherwise squeeze
+    // the text column down to almost nothing on narrower widths.
     return `
-    <div class="vac-item" data-req-id="${req.id}">
+    <div class="req-item" data-req-id="${req.id}">
       <div class="vac-dates">
         <p class="vac-date-range">${escHtml(req.personName)} ${catTag}</p>
         <p class="vac-note">${metaLine}</p>
         ${decidedLine}${reasonLine}
       </div>
-      ${rightHtml}
+      ${actionsHtml}
     </div>`;
   }
 
