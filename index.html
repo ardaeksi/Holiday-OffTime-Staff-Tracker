@@ -733,13 +733,16 @@
   // created) with a stale snapshot from before that approval happened. Re-
   // fetching right before applying the change closes that window down to a
   // network round-trip instead of "however long this tab has been open."
+  async function fetchFreshData() {
+    try {
+      const resp = await fetch('/api/data', { cache: 'no-store' });
+      if (resp.ok) return migrate(await resp.json());
+    } catch { /* fall back to whatever `data` currently holds */ }
+    return data;
+  }
+
   async function saveData(mutate) {
-    if (mutate && !IS_LOCAL) {
-      try {
-        const resp = await fetch('/api/data', { cache: 'no-store' });
-        if (resp.ok) data = migrate(await resp.json());
-      } catch { /* fall back to whatever `data` currently holds */ }
-    }
+    if (mutate && !IS_LOCAL) data = await fetchFreshData();
     if (mutate) mutate(data);
     saveToLocalStorage();
     await saveToServer();
@@ -867,10 +870,28 @@
   function isActiveToday(s, e) { return s <= TODAY_STR && TODAY_STR <= e; }
   function escHtml(str) { const d = document.createElement('div'); d.textContent = str; return d.innerHTML; }
 
+  // Two vacation entries can overlap (double-booked by mistake, or a staff
+  // request that overlaps something already on the books) — a day covered by
+  // more than one entry must still only count once toward totals.
+  function dedupedDayCount(vacations, year) {
+    let days = 0;
+    buildVacDateSet(vacations).forEach((entry, ds) => {
+      if (year !== undefined && Number(ds.slice(0, 4)) !== year) return;
+      days += entry.half ? 0.5 : 1;
+    });
+    return days;
+  }
+
   function yearTotals(person, year) {
-    let days = 0, count = 0;
-    person.vacations.forEach(v => { const d = daysInYear(v.startDate, v.endDate, year, v.worksSaturday, v.halfDay); if (d>0){days+=d;count++;} });
+    let count = 0;
+    person.vacations.forEach(v => { if (daysInYear(v.startDate, v.endDate, year, v.worksSaturday, v.halfDay) > 0) count++; });
+    const days = dedupedDayCount(person.vacations, year);
     return { totalDays: days, weeks: Math.floor(days/7), remDays: days%7, hours: days*8, count };
+  }
+
+  // Given a person's existing vacations, which ones intersect the given date range.
+  function findOverlappingVacations(vacations, startDate, endDate) {
+    return vacations.filter(v => startDate <= v.endDate && v.startDate <= endDate);
   }
 
   // ── Mini Calendar ──────────────────────────────────────
@@ -1187,6 +1208,22 @@
   });
 
   async function approveRequest(reqId, category) {
+    // Warn (not block) if approving would overlap time this person already
+    // has on the books. No check needed for a first-time "New" request —
+    // there's no existing person/record yet for it to overlap with.
+    const req = adminRequests.find(r => r.id === reqId);
+    if (req && req.personId) {
+      const fresh = await fetchFreshData();
+      const person = (fresh[req.category] || []).find(p => p.id === req.personId);
+      if (person) {
+        const overlaps = findOverlappingVacations(person.vacations, req.startDate, req.endDate);
+        if (overlaps.length) {
+          const list = overlaps.map(v => v.halfDay ? `${fmtDate(v.startDate)} (half day)` : fmtRange(v.startDate, v.endDate)).join(', ');
+          const proceed = confirm(`${person.name} already has time off during this period: ${list}.\n\nOverlapping days won't be double-counted toward their total — approve anyway?`);
+          if (!proceed) return;
+        }
+      }
+    }
     try {
       const resp = await fetch('/api/requests/approve', {
         method: 'POST',
@@ -1242,7 +1279,7 @@
     const isCollapsed = !!collapseState[person.id];
     const onVacNow   = person.vacations.some(v => isActiveToday(v.startDate, v.endDate));
     const durStr     = fmtDur({ weeks: totals.weeks, remDays: totals.remDays, totalDays: totals.totalDays });
-    const allDays    = person.vacations.reduce((s,v)=>{ const d=calcDuration(v.startDate,v.endDate,v.worksSaturday,v.halfDay); return s+(d?d.totalDays:0); },0);
+    const allDays    = dedupedDayCount(person.vacations);
     const cardType   = activeTab === 'instructors' ? 'card-inst' : 'card-emp';
     const addBtnCls  = activeTab === 'instructors' ? 'btn-navy'  : 'btn-primary';
     const editable   = canEdit();
@@ -1569,6 +1606,20 @@
     const r = resolveDurationFromForm();
     if (!r) return;
     const targetKey = rCatInst.checked ? 'instructors' : 'employees';
+
+    // Warn (not block) on overlap with time this person already has on the
+    // books — checked against the freshest data, since another admin could
+    // have added something since this page loaded.
+    const preCheck = IS_LOCAL ? data : await fetchFreshData();
+    const existingPerson = preCheck[targetKey].find(p => p.name.toLowerCase() === name.toLowerCase());
+    if (existingPerson) {
+      const overlaps = findOverlappingVacations(existingPerson.vacations, r.startDate, r.endDate);
+      if (overlaps.length) {
+        const list = overlaps.map(v => v.halfDay ? `${fmtDate(v.startDate)} (half day)` : fmtRange(v.startDate, v.endDate)).join(', ');
+        const proceed = confirm(`${name} already has time off during this period: ${list}.\n\nOverlapping days won't be double-counted toward their total — add this entry anyway?`);
+        if (!proceed) return;
+      }
+    }
 
     let flashId = null;
     await saveData(fresh => {
