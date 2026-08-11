@@ -30,7 +30,7 @@
     --shadow-lg:   0 8px 32px rgba(15,31,51,0.18), 0 2px 8px rgba(15,31,51,0.10);
   }
   *, *::before, *::after { box-sizing: border-box; }
-  body { margin: 0; font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; background: var(--grey-50); color: var(--text); min-height: 100vh; }
+  body { margin: 0; font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; background: var(--black); color: var(--text); min-height: 100vh; }
 
   /* ── HEADER ─────────────────────────────────────────── */
   .site-header { background: linear-gradient(135deg, var(--navy) 0%, var(--navy-mid) 60%, var(--dark-green) 100%); border-bottom: 3px solid var(--dark-green); transition: background 0.28s ease, border-color 0.28s ease; }
@@ -99,6 +99,7 @@
   .cat-tag-employees   { background: var(--dark-green); color: var(--white); }
 
   /* ── MAIN ────────────────────────────────────────────── */
+  .main-band { background: var(--grey-50); }
   .container { max-width: 1000px; margin: 0 auto; padding: 28px 24px 120px; }
 
   /* ── TOOLBAR ─────────────────────────────────────────── */
@@ -296,7 +297,11 @@
   .notif-close { background: none; border: none; font-size: 18px; cursor: pointer; color: inherit; opacity: 0.45; padding: 0 3px; line-height: 1; flex-shrink: 0; margin-top: -2px; transition: opacity 0.1s; }
   .notif-close:hover { opacity: 1; }
 
-  footer { text-align: center; font-size: 12px; color: var(--grey-300); margin-top: 40px; }
+  /* ── FOOTER (mirrors the header's color theme) ───────── */
+  .site-footer { background: linear-gradient(135deg, var(--navy) 0%, var(--navy-mid) 60%, var(--dark-green) 100%); border-top: 3px solid var(--dark-green); transition: background 0.28s ease, border-color 0.28s ease; }
+  .site-footer.theme-emp { background: linear-gradient(135deg, var(--dark-green) 0%, var(--green) 55%, #3aad6a 100%); border-top-color: rgba(15,31,51,0.35); }
+  .footer-inner { max-width: 1000px; margin: 0 auto; padding: 18px 24px; text-align: center; font-size: 12px; color: rgba(255,255,255,0.75); }
+  .footer-credit { font-size: 10px; color: rgba(255,255,255,0.5); margin-top: 4px; }
 
   /* ── LOGIN OVERLAY ───────────────────────────────────── */
   .login-overlay { position: fixed; inset: 0; background: linear-gradient(135deg, var(--navy) 0%, var(--navy-mid) 60%, var(--dark-green) 100%); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 20px; }
@@ -449,6 +454,7 @@
 </div>
 
 <!-- ── MAIN ────────────────────────────────────────────── -->
+<div class="main-band">
 <main class="container">
   <div class="toolbar">
     <div class="search-wrap">
@@ -484,9 +490,16 @@
 
   <div id="sectionCal"></div>
   <div id="myRequests" data-role="staff"></div>
-
-  <footer>Holiday / Off Time Staff Tracker &nbsp;|&nbsp; Canadian All Care College</footer>
 </main>
+</div>
+
+<!-- ── FOOTER ──────────────────────────────────────────── -->
+<footer class="site-footer theme-inst" id="siteFooter">
+  <div class="footer-inner">
+    Holiday / Off Time Staff Tracker &nbsp;|&nbsp; Canadian All Care College &nbsp;|&nbsp; <span id="appVersion"></span>
+    <div class="footer-credit">Built by Can Arda Eksioglu — IT / Marketing Officer</div>
+  </div>
+</footer>
 
 <!-- ── MODAL ────────────────────────────────────────────── -->
 <div class="modal-overlay" id="modalOverlay">
@@ -625,6 +638,7 @@
   'use strict';
 
   const STORAGE_KEY = 'holidayTrackerData_v1';
+  const APP_VERSION = '2.1.0';
   const THIS_YEAR   = new Date().getFullYear();
   const TODAY_STR   = new Date().toISOString().slice(0, 10);
 
@@ -866,6 +880,16 @@
     const h12 = h % 12 === 0 ? 12 : h % 12;
     return `${h12}:${String(m).padStart(2,'0')} ${period}`;
   }
+  // Epoch ms → "Jan 15, 2026, 2:34 PM" (local time, not UTC — avoids the date
+  // rolling over a day early/late for users west/east of UTC).
+  function fmtDateTime(ms) {
+    if (!ms) return '';
+    const MN = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const d = new Date(ms);
+    const period = d.getHours() >= 12 ? 'PM' : 'AM';
+    const h12 = d.getHours() % 12 === 0 ? 12 : d.getHours() % 12;
+    return `${MN[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}, ${h12}:${String(d.getMinutes()).padStart(2,'0')} ${period}`;
+  }
   function initials(name) { return name.trim().split(/\s+/).map(w=>w[0].toUpperCase()).slice(0,2).join(''); }
   function isActiveToday(s, e) { return s <= TODAY_STR && TODAY_STR <= e; }
   function escHtml(str) { const d = document.createElement('div'); d.textContent = str; return d.innerHTML; }
@@ -1008,6 +1032,9 @@
     const hdr = document.getElementById('siteHeader');
     hdr.classList.toggle('theme-inst', tab === 'instructors');
     hdr.classList.toggle('theme-emp',  tab === 'employees');
+    const ftr = document.getElementById('siteFooter');
+    ftr.classList.toggle('theme-inst', tab === 'instructors');
+    ftr.classList.toggle('theme-emp',  tab === 'employees');
 
     const label = tab === 'instructors' ? 'Instructors' : 'Office Employees';
     document.getElementById('sectionLabel').textContent = 'All ' + label;
@@ -1123,6 +1150,9 @@
       actionsHtml = `<div class="req-item-actions"><span class="vac-active-tag req-${req.status}">${label}</span></div>`;
     }
 
+    const submittedLine = req.createdAt
+      ? `<p class="vac-note">Submitted ${escHtml(fmtDateTime(req.createdAt))}</p>`
+      : '';
     const decidedLine = req.status !== 'pending'
       ? `<p class="vac-note">by ${req.decidedByEmail ? escHtml(req.decidedByEmail) : 'unknown'}${req.decidedAt ? ' on ' + fmtDate(new Date(req.decidedAt).toISOString().slice(0, 10)) : ''}</p>`
       : '';
@@ -1138,7 +1168,7 @@
       <div class="vac-dates">
         <p class="vac-date-range">${escHtml(req.personName)} ${catTag}</p>
         <p class="vac-note">${metaLine}</p>
-        ${decidedLine}${reasonLine}
+        ${submittedLine}${decidedLine}${reasonLine}
       </div>
       ${actionsHtml}
     </div>`;
@@ -1778,6 +1808,7 @@
 
   // ── Init ───────────────────────────────────────────────
   document.getElementById('currentYear').textContent = THIS_YEAR;
+  document.getElementById('appVersion').textContent = 'v' + APP_VERSION;
   fWksWrap.classList.add('field-hidden');
   fDaysWrap.classList.add('field-hidden');
   loadFromLocalStorage();
