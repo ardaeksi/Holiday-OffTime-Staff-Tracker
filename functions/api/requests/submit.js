@@ -1,7 +1,7 @@
 import { json } from '../../_lib/http.js';
 import { readStore, writeStore, findPersonByEmail, getNotifyAdminEmails } from '../../_lib/store.js';
 import { sendMail } from '../../_lib/graphMail.js';
-import { newRequestNotificationEmail } from '../../_lib/emailTemplates.js';
+import { newRequestNotificationEmail, buildUnsubscribeUrl } from '../../_lib/emailTemplates.js';
 
 function uid() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
@@ -81,12 +81,20 @@ export async function onRequestPost({ request, env, data, waitUntil }) {
 
   // Best-effort admin notification — must never block or fail the submission
   // itself, so it's dispatched via waitUntil (fire-and-forget past the
-  // response) with its own catch rather than awaited inline.
-  const adminEmails = getNotifyAdminEmails(env);
+  // response). Sent one-per-recipient (not a single multi-recipient email)
+  // because each admin's copy carries their own unsubscribe link, and this
+  // also keeps admins from seeing each other's addresses in the To: line.
+  const adminEmails = getNotifyAdminEmails(env, store);
   if (adminEmails.length) {
-    const { subject, html, text } = newRequestNotificationEmail(requestObj, env.APP_BASE_URL);
-    const notify = sendMail(env, { toEmails: adminEmails, subject, html, text })
-      .catch(err => console.error('New-request notification email failed:', err));
+    const notify = Promise.allSettled(adminEmails.map(async adminEmail => {
+      const unsubscribeUrl = await buildUnsubscribeUrl(env, adminEmail);
+      const { subject, html, text } = newRequestNotificationEmail(requestObj, env.APP_BASE_URL, unsubscribeUrl);
+      return sendMail(env, { toEmails: [adminEmail], subject, html, text });
+    })).then(results => {
+      results.forEach((r, i) => {
+        if (r.status === 'rejected') console.error(`Notification email to ${adminEmails[i]} failed:`, r.reason);
+      });
+    });
     if (waitUntil) waitUntil(notify); else await notify;
   }
 

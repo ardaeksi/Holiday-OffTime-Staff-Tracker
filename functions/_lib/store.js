@@ -6,6 +6,7 @@ export function migrate(d) {
   if (!Array.isArray(d.employees)) d.employees = [];
   if (!Array.isArray(d.requests)) d.requests = [];
   if (!Array.isArray(d.auditLog)) d.auditLog = [];
+  if (!Array.isArray(d.notifyOptOuts)) d.notifyOptOuts = [];
   [...d.instructors, ...d.employees].forEach(p => {
     if (typeof p.email !== 'string') p.email = '';
     if (!Array.isArray(p.vacations)) p.vacations = [];
@@ -44,17 +45,32 @@ export function getAdminEmails(env) {
     .filter(Boolean);
 }
 
-// Admins in ADMIN_EMAILS_NO_NOTIFY keep full admin access (approve/deny, etc.)
-// but are left out of the new-request notification email — e.g. someone who
-// wants the role without an inbox alert on every submission.
-export function getNotifyAdminEmails(env) {
-  const excluded = new Set(
+// Two independent ways an admin ends up excluded from the new-request
+// notification email while keeping full admin access otherwise:
+//  - ADMIN_EMAILS_NO_NOTIFY: an env-var exclude list another admin sets
+//  - store.notifyOptOuts: self-serve, set by clicking the unsubscribe link
+//    in the email itself (see functions/api/notify/unsubscribe.js) — kept in
+//    KV rather than an env var so opting out doesn't require a redeploy.
+export function getNotifyAdminEmails(env, store) {
+  const envExcluded = new Set(
     (env.ADMIN_EMAILS_NO_NOTIFY || '')
       .split(',')
       .map(s => s.trim().toLowerCase())
       .filter(Boolean)
   );
-  return getAdminEmails(env).filter(email => !excluded.has(email.toLowerCase()));
+  const optedOut = new Set((store?.notifyOptOuts || []).map(e => e.toLowerCase()));
+  return getAdminEmails(env).filter(email => {
+    const lower = email.toLowerCase();
+    return !envExcluded.has(lower) && !optedOut.has(lower);
+  });
+}
+
+export function addNotifyOptOut(store, email) {
+  const lower = (email || '').trim().toLowerCase();
+  if (!lower) return;
+  if (!store.notifyOptOuts.some(e => e.toLowerCase() === lower)) {
+    store.notifyOptOuts.push(lower);
+  }
 }
 
 export function resolveRole(email, env) {

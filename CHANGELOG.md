@@ -6,6 +6,16 @@ This log follows [Keep a Changelog](https://keepachangelog.com/) style. Version 
 
 ---
 
+## [2.5.0] - 2026-08-11
+
+### Added
+- Redesigned new-request notification email: app icon in the header, request dates/note shown as labeled fields, a real "Review Request" button linking into the tracker, and a one-click unsubscribe link
+- Self-serve unsubscribe: `functions/api/notify/unsubscribe.js`, a no-login endpoint reached via a signed link in the email that adds the admin to a new `notifyOptOuts` list kept in the KV data — takes effect immediately, no redeploy needed
+- Notification emails are now sent one-per-recipient rather than one email to all admins, so each copy can carry that admin's own unsubscribe link (and admins no longer see each other's addresses in the message)
+
+### Changed
+- `APP_BASE_URL` is now effectively required for the full email experience — it builds the icon image URL, the review button's link, and the unsubscribe link; without it the email falls back to a plain, link-free version
+
 ## [2.4.1] - 2026-08-11
 
 ### Added

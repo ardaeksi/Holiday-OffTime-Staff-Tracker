@@ -44,12 +44,14 @@ A single-page web application for tracking instructor and office employee vacati
 │   │   │   ├── callback.js     # Exchanges the auth code, resolves role, issues the session cookie
 │   │   │   ├── logout.js       # Clears the session cookie
 │   │   │   └── me.js           # Returns the current signed-in identity/role
-│   │   └── requests/
-│   │       ├── submit.js       # Staff: create a pending time-off request
-│   │       ├── mine.js         # Staff: own request history
-│   │       ├── list.js         # Admin: list requests (default: pending)
-│   │       ├── approve.js      # Admin: request → official vacation entry
-│   │       └── deny.js         # Admin: request → denied, with a reason
+│   │   ├── requests/
+│   │   │   ├── submit.js       # Staff: create a pending time-off request
+│   │   │   ├── mine.js         # Staff: own request history
+│   │   │   ├── list.js         # Admin: list requests (default: pending)
+│   │   │   ├── approve.js      # Admin: request → official vacation entry
+│   │   │   └── deny.js         # Admin: request → denied, with a reason
+│   │   └── notify/
+│   │       └── unsubscribe.js  # One-click, no-login unsubscribe link clicked from the notification email
 │   └── _lib/                   # Shared helpers (session signing, KV storage, Microsoft OAuth calls,
 │                                #   Graph email sending, notification email templates)
 └── backup-worker/               # Standalone Worker — daily KV backups (see "Daily Backups" below)
@@ -165,17 +167,22 @@ In your Pages project: **Settings** → **Environment variables** → **Add vari
 
 When a staff member submits a time-off request, the app emails everyone in `ADMIN_EMAILS` so a request never sits unnoticed. It sends via Microsoft Graph, using the same Azure app registration as sign-in — no separate email vendor or account needed.
 
-**Current state:** the trigger, sender, and recipient list are wired up and live (`functions/api/requests/submit.js`). The email content itself (`functions/_lib/emailTemplates.js`) is a first-pass placeholder — subject line is `"<name> put a new request on Vacation Tracker!"`, the body is a plain summary. Revisit `newRequestNotificationEmail()` there once you've decided on final wording/branding.
+**Current state:** trigger, sender, recipient list, and the email design itself are all wired up and live. Subject line is `"<name> put a new request on Vacation Tracker!"`. The email (`functions/_lib/emailTemplates.js`) shows the app icon, the request's dates and note as labeled fields, a "Review Request" button back into the tracker, and a one-click unsubscribe link — revisit `newRequestNotificationEmail()` there if you want to change the wording or layout further.
 
 **Setup:**
 1. Grant the `Mail.Send` **Application** permission with admin consent (Step 5 above)
 2. Set `GRAPH_SENDER_EMAIL` to a real, licensed mailbox in your tenant to send from — e.g. a shared mailbox like `notifications@canadianallcare.com`, or an admin's own mailbox
-3. (Optional) Set `APP_BASE_URL` so the email can link back into the tracker
+3. Set `APP_BASE_URL` — with the redesigned template this is effectively required, not just nice-to-have: it's what builds the app icon's image URL, the "Review Request" button's link, and the unsubscribe link. Without it, all three are silently omitted and the email falls back to a plain text-only version.
 
 **Behavior notes:**
 - Sending is best-effort — if Graph is unreachable or misconfigured, the request submission itself still succeeds; the failure is only logged (visible in the Pages Functions real-time logs), never shown to the staff member
 - If `ADMIN_EMAILS` is empty or `GRAPH_SENDER_EMAIL` isn't set, no email is sent — the app works exactly as before
-- To keep an admin's access but stop the notification emails for just them, add their address to `ADMIN_EMAILS_NO_NOTIFY` (comma-separated, same format as `ADMIN_EMAILS`) — they're excluded from this email only, everything else about their admin role is unchanged
+- Each admin gets their own copy of the email (not one email addressed to all of them) — this is what lets each copy carry that recipient's own personal unsubscribe link, and it also means admins never see each other's addresses in the message
+
+**Excluding an admin from notifications** — two ways, both leave their admin access untouched:
+- **You do it:** add their address to `ADMIN_EMAILS_NO_NOTIFY` (comma-separated, same format as `ADMIN_EMAILS`) and redeploy
+- **They do it themselves:** they click "Unsubscribe from these notifications" at the bottom of any notification email — no login needed, no redeploy needed. This adds their email to `notifyOptOuts` in the KV data (not an env var), via the signed one-click link handled by `functions/api/notify/unsubscribe.js`
+- To reverse a self-serve unsubscribe (there's no UI for this yet): Cloudflare dashboard → **Workers & Pages** → **KV** → your namespace → open the `tracker-data` key → remove their address from the `notifyOptOuts` array → save
 
 **Security note:** the `Mail.Send` *Application* permission is powerful — once granted, the app can technically send mail as **any** mailbox in your tenant, not just the one in `GRAPH_SENDER_EMAIL`. To lock it down to only that mailbox, an Exchange Online admin can run (in [Exchange Online PowerShell](https://learn.microsoft.com/en-us/powershell/exchange/connect-to-exchange-online-powershell)):
 ```powershell
