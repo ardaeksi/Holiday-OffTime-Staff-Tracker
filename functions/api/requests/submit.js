@@ -1,5 +1,5 @@
 import { json } from '../../_lib/http.js';
-import { readStore, writeStore, findPersonByEmail, getAdminEmails } from '../../_lib/store.js';
+import { readStore, writeStore, findPersonByEmail, getNotifyAdminEmails } from '../../_lib/store.js';
 import { sendMail } from '../../_lib/graphMail.js';
 import { newRequestNotificationEmail } from '../../_lib/emailTemplates.js';
 
@@ -82,7 +82,7 @@ export async function onRequestPost({ request, env, data, waitUntil }) {
   // Best-effort admin notification — must never block or fail the submission
   // itself, so it's dispatched via waitUntil (fire-and-forget past the
   // response) with its own catch rather than awaited inline.
-  const adminEmails = getAdminEmails(env);
+  const adminEmails = getNotifyAdminEmails(env);
   if (adminEmails.length) {
     const { subject, html, text } = newRequestNotificationEmail(requestObj, env.APP_BASE_URL);
     const notify = sendMail(env, { toEmails: adminEmails, subject, html, text })

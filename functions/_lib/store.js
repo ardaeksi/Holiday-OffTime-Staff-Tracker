@@ -44,6 +44,19 @@ export function getAdminEmails(env) {
     .filter(Boolean);
 }
 
+// Admins in ADMIN_EMAILS_NO_NOTIFY keep full admin access (approve/deny, etc.)
+// but are left out of the new-request notification email — e.g. someone who
+// wants the role without an inbox alert on every submission.
+export function getNotifyAdminEmails(env) {
+  const excluded = new Set(
+    (env.ADMIN_EMAILS_NO_NOTIFY || '')
+      .split(',')
+      .map(s => s.trim().toLowerCase())
+      .filter(Boolean)
+  );
+  return getAdminEmails(env).filter(email => !excluded.has(email.toLowerCase()));
+}
+
 export function resolveRole(email, env) {
   const admins = getAdminEmails(env).map(e => e.toLowerCase());
   return admins.includes((email || '').toLowerCase()) ? 'admin' : 'staff';

@@ -6,6 +6,11 @@ This log follows [Keep a Changelog](https://keepachangelog.com/) style. Version 
 
 ---
 
+## [2.4.1] - 2026-08-11
+
+### Added
+- `ADMIN_EMAILS_NO_NOTIFY` env var — lets specific admins keep full admin access while opting out of the new-request notification email
+
 ## [2.4.0] - 2026-08-11
 
 ### Added

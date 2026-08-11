@@ -142,6 +142,7 @@ In your Pages project: **Settings** → **Environment variables** → **Add vari
 | `SESSION_SECRET` | A random 32+ byte string (e.g. `openssl rand -base64 32`) | **Yes** |
 | `ADMIN_EMAILS` | Comma-separated admin emails, e.g. `admin1@canadianallcare.com,admin2@canadianallcare.com` | No |
 | `GRAPH_SENDER_EMAIL` | Mailbox to send notification emails from, e.g. `notifications@canadianallcare.com` (optional — see [Email Notifications](#email-notifications-new-request-submitted)) | No |
+| `ADMIN_EMAILS_NO_NOTIFY` | Comma-separated subset of `ADMIN_EMAILS` to exclude from the new-request notification email — they keep full admin access, they just won't get emailed (optional) | No |
 | `APP_BASE_URL` | Your Pages URL, e.g. `https://your-project.pages.dev` — used only to build the "Open Vacation Tracker" link in notification emails (optional) | No |
 
 > Cloudflare Pages *Preview* deployments get a different URL per commit, which can't practically be pre-registered as an Azure redirect URI. Test sign-in against the fixed Production URL rather than a Preview link.
@@ -174,6 +175,7 @@ When a staff member submits a time-off request, the app emails everyone in `ADMI
 **Behavior notes:**
 - Sending is best-effort — if Graph is unreachable or misconfigured, the request submission itself still succeeds; the failure is only logged (visible in the Pages Functions real-time logs), never shown to the staff member
 - If `ADMIN_EMAILS` is empty or `GRAPH_SENDER_EMAIL` isn't set, no email is sent — the app works exactly as before
+- To keep an admin's access but stop the notification emails for just them, add their address to `ADMIN_EMAILS_NO_NOTIFY` (comma-separated, same format as `ADMIN_EMAILS`) — they're excluded from this email only, everything else about their admin role is unchanged
 
 **Security note:** the `Mail.Send` *Application* permission is powerful — once granted, the app can technically send mail as **any** mailbox in your tenant, not just the one in `GRAPH_SENDER_EMAIL`. To lock it down to only that mailbox, an Exchange Online admin can run (in [Exchange Online PowerShell](https://learn.microsoft.com/en-us/powershell/exchange/connect-to-exchange-online-powershell)):
 ```powershell
