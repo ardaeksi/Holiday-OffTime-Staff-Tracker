@@ -30,8 +30,11 @@ A single-page web application for tracking instructor and office employee vacati
 /
 ├── index.html                  # The entire application (HTML + CSS + JS)
 ├── LogoHighPixelated.png.png   # Company logo used in header and login screen
+├── favicon.ico, favicon-16x16.png, favicon-32x32.png,
+│   icon-192.png, icon-512.png, apple-touch-icon.png   # Browser tab / home-screen icon
 ├── holiday-tracker-data.json   # Demo/seed data (not used at runtime — cloud is the source of truth)
 ├── README.md                   # This file
+├── CHANGELOG.md                # Version history
 ├── functions/
 │   ├── api/
 │   │   ├── _middleware.js      # Verifies the session cookie on every /api/* request
