@@ -6,6 +6,13 @@ This log follows [Keep a Changelog](https://keepachangelog.com/) style. Version 
 
 ---
 
+## [2.3.0] - 2026-08-11
+
+### Changed
+- Requests panel (pending dropdown and Log modal) now shows clearly labeled fields — **Date Requested**, **Note**, **Decided**, **Reason** — instead of one run-together line, so admins can tell at a glance if a request came in with no description
+- A request with no note now explicitly shows "No description provided" instead of just omitting the line
+- Submitted timestamp moved into its own pill-shaped badge with a background fill and clock icon, visually distinct from the requested vacation date
+
 ## [2.2.0] - 2026-08-11
 
 ### Added

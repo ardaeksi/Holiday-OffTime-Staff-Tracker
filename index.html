@@ -220,6 +220,16 @@
   .req-item { display: flex; flex-direction: column; gap: 8px; padding: 11px 14px; background: var(--grey-50); border-radius: 8px; border: 1px solid var(--grey-100); transition: border-color 0.1s; }
   .req-item:hover { border-color: var(--grey-300); }
   .req-item-actions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 6px; }
+  .req-item-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+  /* Submitted timestamp gets its own pill (background overlay) so it visually
+     reads as metadata, not mistaken for the requested vacation date. */
+  .req-submitted-badge { display: inline-flex; align-items: center; gap: 4px; flex-shrink: 0; font-size: 10.5px; font-weight: 700; color: var(--navy-mid); background: rgba(28,58,92,0.09); border: 1px solid rgba(28,58,92,0.18); border-radius: 20px; padding: 3px 9px 3px 7px; white-space: nowrap; }
+  .req-submitted-badge svg { flex-shrink: 0; }
+  .req-field { display: flex; gap: 6px; margin: 0; font-size: 12px; color: var(--text); line-height: 1.4; }
+  .req-field-label { flex: 0 0 92px; font-size: 9.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; color: var(--grey-500); padding-top: 2px; }
+  .req-field-value { flex: 1; min-width: 0; }
+  .req-field-empty { color: var(--grey-500); font-style: italic; }
+  .req-field-reason .req-field-value { color: #b3261e; font-weight: 600; }
   .req-pending  { color: #92400e; background: #fffbeb; border-color: #fbbf24; }
   .req-approved { color: var(--dark-green); background: var(--green-pale); border-color: var(--green-light); }
   .req-denied   { color: #b3261e; background: #fde8e7; border-color: #f3b9b4; }
@@ -643,7 +653,7 @@
   'use strict';
 
   const STORAGE_KEY = 'holidayTrackerData_v1';
-  const APP_VERSION = '2.2.0';
+  const APP_VERSION = '2.3.0';
   const THIS_YEAR   = new Date().getFullYear();
   const TODAY_STR   = new Date().toISOString().slice(0, 10);
 
@@ -1128,9 +1138,9 @@
   // Category tags are needed here because — unlike the Instructors/Office Employees tabs — this view pools both.
   function renderRequestItem(req) {
     const dur = calcDuration(req.startDate, req.endDate, req.worksSaturday, req.halfDay);
-    const metaLine = req.halfDay
-      ? `${escHtml(fmtDate(req.startDate))} <span class="hd-tag">Half Day</span> · off from ${fmtTime(req.halfDayFrom)}${req.note ? ' · ' + escHtml(req.note) : ''}`
-      : `${escHtml(fmtRange(req.startDate, req.endDate))} · ${dur ? escHtml(fmtDur(dur)) : '—'}${req.note ? ' · ' + escHtml(req.note) : ''}`;
+    const dateRequestedLine = req.halfDay
+      ? `${escHtml(fmtDate(req.startDate))} <span class="hd-tag">Half Day</span> · off from ${fmtTime(req.halfDayFrom)}`
+      : `${escHtml(fmtRange(req.startDate, req.endDate))}${dur ? ' · ' + escHtml(fmtDur(dur)) : ''}`;
 
     // A first-time requester has no category yet — Azure has no concept of
     // Instructor vs. Office Employee, so the admin picks it right when approving.
@@ -1155,14 +1165,25 @@
       actionsHtml = `<div class="req-item-actions"><span class="vac-active-tag req-${req.status}">${label}</span></div>`;
     }
 
-    const submittedLine = req.createdAt
-      ? `<p class="vac-note">Submitted ${escHtml(fmtDateTime(req.createdAt))}</p>`
+    // Submitted timestamp is pulled out into its own badge (not a labeled
+    // field like the rest) so it reads visually distinct from the requested
+    // vacation date at a glance, rather than blending in as another line of text.
+    const submittedBadge = req.createdAt
+      ? `<span class="req-submitted-badge" title="Submitted ${escHtml(fmtDateTime(req.createdAt))}">
+           <svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path stroke-linecap="round" stroke-linejoin="round" d="M12 7v5l3 3"/></svg>
+           Submitted ${escHtml(fmtDateTime(req.createdAt))}
+         </span>`
       : '';
     const decidedLine = req.status !== 'pending'
-      ? `<p class="vac-note">by ${req.decidedByEmail ? escHtml(req.decidedByEmail) : 'unknown'}${req.decidedAt ? ' on ' + fmtDate(new Date(req.decidedAt).toISOString().slice(0, 10)) : ''}</p>`
+      ? `<p class="req-field"><span class="req-field-label">Decided</span><span class="req-field-value">by ${req.decidedByEmail ? escHtml(req.decidedByEmail) : 'unknown'}${req.decidedAt ? ' on ' + fmtDate(new Date(req.decidedAt).toISOString().slice(0, 10)) : ''}</span></p>`
       : '';
-    const reasonLine = (req.status === 'denied' && req.denialReason)
-      ? `<p class="vac-note" style="color:#b3261e">Reason: ${escHtml(req.denialReason)}</p>`
+    // Explicit "no description" placeholder — the whole point is so an admin
+    // can tell "no note" apart from "note not rendered."
+    const noteValue = req.note
+      ? escHtml(req.note)
+      : '<span class="req-field-empty">No description provided</span>';
+    const reasonLine = req.status === 'denied'
+      ? `<p class="req-field req-field-reason"><span class="req-field-label">Reason</span><span class="req-field-value">${req.denialReason ? escHtml(req.denialReason) : 'No reason given'}</span></p>`
       : '';
 
     // Stacked, not side-by-side with the buttons — a wide action row (e.g. the
@@ -1171,9 +1192,13 @@
     return `
     <div class="req-item" data-req-id="${req.id}">
       <div class="vac-dates">
-        <p class="vac-date-range">${escHtml(req.personName)} ${catTag}</p>
-        <p class="vac-note">${metaLine}</p>
-        ${submittedLine}${decidedLine}${reasonLine}
+        <div class="req-item-top">
+          <p class="vac-date-range">${escHtml(req.personName)} ${catTag}</p>
+          ${submittedBadge}
+        </div>
+        <p class="req-field"><span class="req-field-label">Date Requested</span><span class="req-field-value">${dateRequestedLine}</span></p>
+        <p class="req-field"><span class="req-field-label">Note</span><span class="req-field-value">${noteValue}</span></p>
+        ${decidedLine}${reasonLine}
       </div>
       ${actionsHtml}
     </div>`;
