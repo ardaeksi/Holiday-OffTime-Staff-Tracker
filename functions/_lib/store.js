@@ -37,10 +37,14 @@ export function findPersonById(store, category, personId) {
   return store[category].find(p => p.id === personId) || null;
 }
 
-export function resolveRole(email, env) {
-  const admins = (env.ADMIN_EMAILS || '')
+export function getAdminEmails(env) {
+  return (env.ADMIN_EMAILS || '')
     .split(',')
-    .map(s => s.trim().toLowerCase())
+    .map(s => s.trim())
     .filter(Boolean);
+}
+
+export function resolveRole(email, env) {
+  const admins = getAdminEmails(env).map(e => e.toLowerCase());
   return admins.includes((email || '').toLowerCase()) ? 'admin' : 'staff';
 }

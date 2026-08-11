@@ -6,6 +6,19 @@ This log follows [Keep a Changelog](https://keepachangelog.com/) style. Version 
 
 ---
 
+## [2.4.0] - 2026-08-11
+
+### Added
+- Email notifications: submitting a time-off request now emails everyone in `ADMIN_EMAILS`, sent via Microsoft Graph using the app's existing Azure AD registration (no separate email vendor)
+- `functions/_lib/graphMail.js` — app-only Graph token acquisition (client credentials) and `sendMail()`
+- `functions/_lib/emailTemplates.js` — notification email content, kept separate from the sending logic so it can be redesigned independently; currently a first-pass template (subject: `"<name> put a new request on Vacation Tracker!"`) pending final copy
+- New optional env vars: `GRAPH_SENDER_EMAIL` (mailbox to send from) and `APP_BASE_URL` (used to link back into the tracker from the email)
+- README: setup steps for the `Mail.Send` Graph application permission (with admin consent) and an optional Exchange Online `ApplicationAccessPolicy` to restrict it to just the sender mailbox
+
+### Notes
+- Sending is best-effort and fire-and-forget (`waitUntil`) — a Graph/email failure is logged but never blocks or fails the request submission itself
+- No admin emails configured, or `GRAPH_SENDER_EMAIL` unset → notification is silently skipped, no behavior change from before
+
 ## [2.3.0] - 2026-08-11
 
 ### Changed

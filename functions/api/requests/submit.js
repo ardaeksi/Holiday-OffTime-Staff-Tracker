@@ -1,5 +1,7 @@
 import { json } from '../../_lib/http.js';
-import { readStore, writeStore, findPersonByEmail } from '../../_lib/store.js';
+import { readStore, writeStore, findPersonByEmail, getAdminEmails } from '../../_lib/store.js';
+import { sendMail } from '../../_lib/graphMail.js';
+import { newRequestNotificationEmail } from '../../_lib/emailTemplates.js';
 
 function uid() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
@@ -24,7 +26,7 @@ function countOffDays(startDate, endDate, worksSaturday) {
   return count;
 }
 
-export async function onRequestPost({ request, env, data }) {
+export async function onRequestPost({ request, env, data, waitUntil }) {
   const session = data.session;
   if (!session) return json({ error: 'Unauthorized' }, 401);
   // No linked person record yet is fine — this becomes their first-ever request,
@@ -76,5 +78,17 @@ export async function onRequestPost({ request, env, data }) {
   };
   store.requests.push(requestObj);
   await writeStore(env, store);
+
+  // Best-effort admin notification — must never block or fail the submission
+  // itself, so it's dispatched via waitUntil (fire-and-forget past the
+  // response) with its own catch rather than awaited inline.
+  const adminEmails = getAdminEmails(env);
+  if (adminEmails.length) {
+    const { subject, html, text } = newRequestNotificationEmail(requestObj, env.APP_BASE_URL);
+    const notify = sendMail(env, { toEmails: adminEmails, subject, html, text })
+      .catch(err => console.error('New-request notification email failed:', err));
+    if (waitUntil) waitUntil(notify); else await notify;
+  }
+
   return json({ ok: true, request: requestObj }, 201);
 }

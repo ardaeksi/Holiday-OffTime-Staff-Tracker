@@ -50,7 +50,8 @@ A single-page web application for tracking instructor and office employee vacati
 │   │       ├── list.js         # Admin: list requests (default: pending)
 │   │       ├── approve.js      # Admin: request → official vacation entry
 │   │       └── deny.js         # Admin: request → denied, with a reason
-│   └── _lib/                   # Shared helpers (session signing, KV storage, Microsoft OAuth calls)
+│   └── _lib/                   # Shared helpers (session signing, KV storage, Microsoft OAuth calls,
+│                                #   Graph email sending, notification email templates)
 └── backup-worker/               # Standalone Worker — daily KV backups (see "Daily Backups" below)
     ├── index.js
     └── wrangler.toml
@@ -125,7 +126,8 @@ Cloudflare KV (key-value store)
 - Click **Register**, then note the **Application (client) ID** and **Directory (tenant) ID** from the Overview page
 - **Certificates & secrets** → **New client secret** → copy the **Value** immediately (shown once)
 - **Token configuration** → **Add optional claim** → token type **ID** → check **email** → Add
-- No API permission changes needed — the default `User.Read` is fine
+- Sign-in itself needs no API permission changes — the default `User.Read` is fine
+- To enable [email notifications](#email-notifications-new-request-submitted) (optional but recommended): **API permissions** → **Add a permission** → **Microsoft Graph** → **Application permissions** → search `Mail.Send` → check it → **Add permissions**, then click **Grant admin consent for &lt;org&gt;** (requires a Global/Application Administrator). This is a separate, more powerful permission than the delegated `User.Read` used for sign-in — see the note in that section on scoping it down.
 
 ### 6. Add environment variables
 
@@ -139,6 +141,8 @@ In your Pages project: **Settings** → **Environment variables** → **Add vari
 | `AZURE_REDIRECT_URI` | The exact URL registered in Step 5 (e.g. `https://your-project.pages.dev/api/auth/callback`) | No |
 | `SESSION_SECRET` | A random 32+ byte string (e.g. `openssl rand -base64 32`) | **Yes** |
 | `ADMIN_EMAILS` | Comma-separated admin emails, e.g. `admin1@canadianallcare.com,admin2@canadianallcare.com` | No |
+| `GRAPH_SENDER_EMAIL` | Mailbox to send notification emails from, e.g. `notifications@canadianallcare.com` (optional — see [Email Notifications](#email-notifications-new-request-submitted)) | No |
+| `APP_BASE_URL` | Your Pages URL, e.g. `https://your-project.pages.dev` — used only to build the "Open Vacation Tracker" link in notification emails (optional) | No |
 
 > Cloudflare Pages *Preview* deployments get a different URL per commit, which can't practically be pre-registered as an Azure redirect URI. Test sign-in against the fixed Production URL rather than a Preview link.
 
@@ -153,6 +157,29 @@ In your Pages project: **Settings** → **Environment variables** → **Add vari
 - For each existing person, click the ✎ next to their name and set their **Sign-in Email** to the Microsoft account they'll log in with
 - Anyone whose email is in `ADMIN_EMAILS` gets the Admin view; everyone else gets the Staff view scoped to their linked record
 - Share the Pages URL with staff — they sign in with their existing Microsoft account, no password to distribute
+
+---
+
+## Email Notifications (New Request Submitted)
+
+When a staff member submits a time-off request, the app emails everyone in `ADMIN_EMAILS` so a request never sits unnoticed. It sends via Microsoft Graph, using the same Azure app registration as sign-in — no separate email vendor or account needed.
+
+**Current state:** the trigger, sender, and recipient list are wired up and live (`functions/api/requests/submit.js`). The email content itself (`functions/_lib/emailTemplates.js`) is a first-pass placeholder — subject line is `"<name> put a new request on Vacation Tracker!"`, the body is a plain summary. Revisit `newRequestNotificationEmail()` there once you've decided on final wording/branding.
+
+**Setup:**
+1. Grant the `Mail.Send` **Application** permission with admin consent (Step 5 above)
+2. Set `GRAPH_SENDER_EMAIL` to a real, licensed mailbox in your tenant to send from — e.g. a shared mailbox like `notifications@canadianallcare.com`, or an admin's own mailbox
+3. (Optional) Set `APP_BASE_URL` so the email can link back into the tracker
+
+**Behavior notes:**
+- Sending is best-effort — if Graph is unreachable or misconfigured, the request submission itself still succeeds; the failure is only logged (visible in the Pages Functions real-time logs), never shown to the staff member
+- If `ADMIN_EMAILS` is empty or `GRAPH_SENDER_EMAIL` isn't set, no email is sent — the app works exactly as before
+
+**Security note:** the `Mail.Send` *Application* permission is powerful — once granted, the app can technically send mail as **any** mailbox in your tenant, not just the one in `GRAPH_SENDER_EMAIL`. To lock it down to only that mailbox, an Exchange Online admin can run (in [Exchange Online PowerShell](https://learn.microsoft.com/en-us/powershell/exchange/connect-to-exchange-online-powershell)):
+```powershell
+New-ApplicationAccessPolicy -AppId <AZURE_CLIENT_ID> -PolicyScopeGroupId notifications@canadianallcare.com -AccessRight RestrictAccess -Description "Holiday Tracker: restrict to the notifications mailbox only"
+```
+This is optional but recommended — without it, a leaked `AZURE_CLIENT_SECRET` would let someone send mail as anyone in the organization.
 
 ---
 
