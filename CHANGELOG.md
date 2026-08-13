@@ -6,6 +6,15 @@ This log follows [Keep a Changelog](https://keepachangelog.com/) style. Version 
 
 ---
 
+## [2.6.0] - 2026-08-11
+
+### Added
+- Approval confirmation email: when an admin approves a request, every subscribed admin (not just the approver) gets an email showing who was approved, the dates, the reason given, who approved it, and when — `approvedRequestEmail()` in `functions/_lib/emailTemplates.js`, wired into `functions/api/requests/approve.js` with the same best-effort/fire-and-forget/one-per-recipient/personal-unsubscribe-link pattern as the new-request notification
+- Visually distinct from the new-request email: green "approved" header with a CSS-drawn checkmark badge instead of the navy/green header and app icon — renders instantly even in clients that block remote images by default, since it isn't one
+
+### Changed
+- `emailTemplates.js` refactored: the shared card shell, footer, button, and details-table markup that both email templates use is now factored into `emailShell()` / `actionButtonHtml()` / `detailsTableHtml()` helpers instead of being duplicated
+
 ## [2.5.1] - 2026-08-11
 
 ### Added

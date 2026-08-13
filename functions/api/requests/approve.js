@@ -1,11 +1,13 @@
 import { json } from '../../_lib/http.js';
-import { readStore, writeStore, findPersonById } from '../../_lib/store.js';
+import { readStore, writeStore, findPersonById, getNotifyAdminEmails } from '../../_lib/store.js';
+import { sendMail } from '../../_lib/graphMail.js';
+import { approvedRequestEmail, buildUnsubscribeUrl } from '../../_lib/emailTemplates.js';
 
 function uid() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 }
 
-export async function onRequestPost({ request, env, data }) {
+export async function onRequestPost({ request, env, data, waitUntil }) {
   const session = data.session;
   if (!session) return json({ error: 'Unauthorized' }, 401);
   if (session.role !== 'admin') return json({ error: 'Forbidden' }, 403);
@@ -59,5 +61,22 @@ export async function onRequestPost({ request, env, data }) {
   req.decidedByEmail = session.email;
 
   await writeStore(env, store);
+
+  // Same best-effort, fire-and-forget, one-per-recipient pattern as the
+  // new-request notification in requests/submit.js — see the comment there.
+  const adminEmails = getNotifyAdminEmails(env, store);
+  if (adminEmails.length) {
+    const notify = Promise.allSettled(adminEmails.map(async adminEmail => {
+      const unsubscribeUrl = await buildUnsubscribeUrl(env, adminEmail);
+      const { subject, html, text } = approvedRequestEmail(req, env.APP_BASE_URL, unsubscribeUrl);
+      return sendMail(env, { toEmails: [adminEmail], subject, html, text });
+    })).then(results => {
+      results.forEach((r, i) => {
+        if (r.status === 'rejected') console.error(`Approval email to ${adminEmails[i]} failed:`, r.reason);
+      });
+    });
+    if (waitUntil) waitUntil(notify); else await notify;
+  }
+
   return json({ ok: true, request: req, vacation });
 }

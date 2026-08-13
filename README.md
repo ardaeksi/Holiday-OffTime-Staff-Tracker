@@ -164,16 +164,21 @@ In your Pages project: **Settings** → **Environment variables** → **Add vari
 
 ---
 
-## Email Notifications (New Request Submitted)
+## Email Notifications
 
-When a staff member submits a time-off request, the app emails everyone in `ADMIN_EMAILS` so a request never sits unnoticed. It sends via Microsoft Graph, using the same Azure app registration as sign-in — no separate email vendor or account needed.
+The app emails everyone in `ADMIN_EMAILS` (minus anyone excluded — see below) at two points, so nothing sits unnoticed and approvals are visible to the whole admin team, not just whoever clicked Approve. It sends via Microsoft Graph, using the same Azure app registration as sign-in — no separate email vendor or account needed.
 
-**Current state:** trigger, sender, recipient list, and the email design itself are all wired up and live. Subject line is `"<name> put a new request on Vacation Tracker!"`. The email (`functions/_lib/emailTemplates.js`) shows the app icon, the request's dates and note as labeled fields, a "Review Request" button back into the tracker, and a one-click unsubscribe link — revisit `newRequestNotificationEmail()` there if you want to change the wording or layout further.
+| Event | Fires from | Subject | Template function |
+|---|---|---|---|
+| Staff submits a request | `functions/api/requests/submit.js` | `"<name> put a new request on Vacation Tracker!"` | `newRequestNotificationEmail()` |
+| Admin approves a request | `functions/api/requests/approve.js` | `"<name>'s time off request was approved!"` | `approvedRequestEmail()` |
+
+Both live in `functions/_lib/emailTemplates.js` and share the same card layout (a `emailShell()` helper) and footer — the approval email swaps the navy/green header + app icon for a green header + a CSS-drawn checkmark badge (no image, so it renders instantly even if the client blocks remote images), and adds "Approved By" / "Approved On" fields alongside the dates and note. Revisit either function directly if you want to change wording or layout further. Denial doesn't send an email yet — the admin team already sees a denial the moment they load the app.
 
 **Setup:**
 1. Grant the `Mail.Send` **Application** permission with admin consent (Step 5 above)
 2. Set `GRAPH_SENDER_EMAIL` to a real, licensed mailbox in your tenant to send from — e.g. a shared mailbox like `notifications@canadianallcare.com`, or an admin's own mailbox
-3. Set `APP_BASE_URL` — with the redesigned template this is effectively required, not just nice-to-have: it's what builds the app icon's image URL, the "Review Request" button's link, and the unsubscribe link. Without it, all three are silently omitted and the email falls back to a plain text-only version.
+3. Set `APP_BASE_URL` — effectively required, not just nice-to-have: it's what builds the app icon's image URL, each email's button link, and the unsubscribe link. Without it, all three are silently omitted and the email falls back to a plain text-only version.
 
 **Behavior notes:**
 - Sending is best-effort — if Graph is unreachable or misconfigured, the request submission itself still succeeds; the failure is only logged (visible in the Pages Functions real-time logs), never shown to the staff member
