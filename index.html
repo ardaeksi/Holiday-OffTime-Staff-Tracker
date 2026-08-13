@@ -118,6 +118,8 @@
   /* ── BUTTONS ─────────────────────────────────────────── */
   .btn { border: none; cursor: pointer; font-family: inherit; font-weight: 600; border-radius: var(--radius-sm); padding: 10px 18px; font-size: 14px; display: inline-flex; align-items: center; gap: 6px; transition: transform 0.08s, background 0.15s; white-space: nowrap; }
   .btn:active { transform: scale(0.97); }
+  .btn:disabled { opacity: 0.55; cursor: not-allowed; }
+  .btn:disabled:active { transform: none; }
   .btn-primary { background: var(--dark-green); color: var(--white); box-shadow: var(--shadow); }
   .btn-primary:hover { background: var(--green); }
   .btn-ghost { background: transparent; color: var(--grey-700); border: 1.5px solid var(--grey-300); }
@@ -440,6 +442,7 @@
   <div class="storage-inner">
     <span class="storage-icon">👤</span>
     <span class="storage-text" id="userBarText"></span>
+    <button class="btn btn-xs btn-ghost" id="notifyToggleBtn" style="display:none" data-role="admin"></button>
     <button class="btn btn-xs btn-ghost" id="signOutBtn">Sign Out</button>
   </div>
 </div>
@@ -653,7 +656,7 @@
   'use strict';
 
   const STORAGE_KEY = 'holidayTrackerData_v1';
-  const APP_VERSION = '2.5.0';
+  const APP_VERSION = '2.5.1';
   const THIS_YEAR   = new Date().getFullYear();
   const TODAY_STR   = new Date().toISOString().slice(0, 10);
 
@@ -790,6 +793,53 @@
   document.getElementById('signOutBtn').addEventListener('click', async () => {
     try { await fetch('/api/auth/logout', { method: 'POST' }); } catch {}
     location.href = '/';
+  });
+
+  // ── New-request notification preference (admin, self-serve) ─────────────
+  // Mirrors the unsubscribe link in the email itself — same underlying
+  // store.notifyOptOuts flag, just toggled from inside the app instead of
+  // from a one-click link, so an admin who muted it can turn it back on.
+  let notifyPref = { optedOut: false, forcedByEnv: false };
+
+  function renderNotifyToggle() {
+    const btn = document.getElementById('notifyToggleBtn');
+    if (!session || session.role !== 'admin') { btn.style.display = 'none'; return; }
+    btn.style.display = 'inline-flex';
+    if (notifyPref.forcedByEnv) {
+      btn.disabled = true;
+      btn.title = 'Turned off by an administrator (ADMIN_EMAILS_NO_NOTIFY) — ask them to change it.';
+      btn.textContent = '🔕 Notifications Off';
+    } else {
+      btn.disabled = false;
+      btn.title = notifyPref.optedOut ? 'Turn new-request emails back on' : 'Stop getting new-request emails';
+      btn.textContent = notifyPref.optedOut ? '🔕 Notifications Off' : '🔔 Notifications On';
+    }
+  }
+
+  async function loadNotifyPreference() {
+    try {
+      const resp = await fetch('/api/notify/preference', { cache: 'no-store' });
+      if (resp.ok) notifyPref = await resp.json();
+    } catch { /* keep last known state */ }
+    renderNotifyToggle();
+  }
+
+  document.getElementById('notifyToggleBtn').addEventListener('click', async () => {
+    if (notifyPref.forcedByEnv) return;
+    const next = !notifyPref.optedOut;
+    try {
+      const resp = await fetch('/api/notify/preference', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ optedOut: next })
+      });
+      if (!resp.ok) throw new Error('failed');
+      notifyPref = await resp.json();
+      renderNotifyToggle();
+      showToast(notifyPref.optedOut ? 'New-request emails turned off.' : 'New-request emails turned on.');
+    } catch {
+      showToast('Failed to update notification setting.');
+    }
   });
 
   // ── Role-based view ─────────────────────────────────────
@@ -1872,7 +1922,7 @@
       session = me;
       applyRoleView();
       await loadFromServer();
-      if (session.role === 'admin') { loadAdminRequests(); loadAuditLog(); }
+      if (session.role === 'admin') { loadAdminRequests(); loadAuditLog(); loadNotifyPreference(); }
       else loadMyRequests();
     })();
   }

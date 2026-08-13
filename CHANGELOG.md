@@ -6,6 +6,16 @@ This log follows [Keep a Changelog](https://keepachangelog.com/) style. Version 
 
 ---
 
+## [2.5.1] - 2026-08-11
+
+### Added
+- **🔔 Notifications On/Off** button in the signed-in bar (next to Sign Out, admins only) to re-subscribe after unsubscribing from an email, or turn notifications off without waiting for one to arrive
+- `functions/api/notify/preference.js` — GET/POST endpoint backing the button; self-serve, same `notifyOptOuts` KV list the email's unsubscribe link uses, so either method reverses the other
+- `store.js`: `isNotifyOptedOut()`, `isNotifyExcludedByEnv()`, `removeNotifyOptOut()` — `getNotifyAdminEmails()` now built from these instead of inlined logic
+
+### Changed
+- If an admin is excluded via `ADMIN_EMAILS_NO_NOTIFY`, the button shows a disabled "set by admin" state instead of a toggle that wouldn't do anything
+
 ## [2.5.0] - 2026-08-11
 
 ### Added

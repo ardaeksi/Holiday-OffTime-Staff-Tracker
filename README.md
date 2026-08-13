@@ -51,7 +51,8 @@ A single-page web application for tracking instructor and office employee vacati
 │   │   │   ├── approve.js      # Admin: request → official vacation entry
 │   │   │   └── deny.js         # Admin: request → denied, with a reason
 │   │   └── notify/
-│   │       └── unsubscribe.js  # One-click, no-login unsubscribe link clicked from the notification email
+│   │       ├── unsubscribe.js  # One-click, no-login unsubscribe link clicked from the notification email
+│   │       └── preference.js   # GET/POST — admin's own notification on/off toggle, used by the app UI
 │   └── _lib/                   # Shared helpers (session signing, KV storage, Microsoft OAuth calls,
 │                                #   Graph email sending, notification email templates)
 └── backup-worker/               # Standalone Worker — daily KV backups (see "Daily Backups" below)
@@ -179,10 +180,10 @@ When a staff member submits a time-off request, the app emails everyone in `ADMI
 - If `ADMIN_EMAILS` is empty or `GRAPH_SENDER_EMAIL` isn't set, no email is sent — the app works exactly as before
 - Each admin gets their own copy of the email (not one email addressed to all of them) — this is what lets each copy carry that recipient's own personal unsubscribe link, and it also means admins never see each other's addresses in the message
 
-**Excluding an admin from notifications** — two ways, both leave their admin access untouched:
+**Excluding an admin from notifications** — three ways, all leave their admin access untouched:
 - **You do it:** add their address to `ADMIN_EMAILS_NO_NOTIFY` (comma-separated, same format as `ADMIN_EMAILS`) and redeploy
-- **They do it themselves:** they click "Unsubscribe from these notifications" at the bottom of any notification email — no login needed, no redeploy needed. This adds their email to `notifyOptOuts` in the KV data (not an env var), via the signed one-click link handled by `functions/api/notify/unsubscribe.js`
-- To reverse a self-serve unsubscribe (there's no UI for this yet): Cloudflare dashboard → **Workers & Pages** → **KV** → your namespace → open the `tracker-data` key → remove their address from the `notifyOptOuts` array → save
+- **They do it from the email:** click "Unsubscribe from these notifications" at the bottom of any notification email — no login, no redeploy. This adds their email to `notifyOptOuts` in the KV data (not an env var), via the signed one-click link handled by `functions/api/notify/unsubscribe.js`
+- **They do it from the app:** signed in as an admin, the **🔔 Notifications On** button next to Sign Out toggles it directly (`functions/api/notify/preference.js`, GET to check status / POST to flip it) — same `notifyOptOuts` list as the email link, so either method reverses the other. If they're excluded via `ADMIN_EMAILS_NO_NOTIFY` instead, this button shows a disabled **🔕 Notifications Off** state, since toggling their own KV flag wouldn't matter while the env-var exclusion still applies
 
 **Security note:** the `Mail.Send` *Application* permission is powerful — once granted, the app can technically send mail as **any** mailbox in your tenant, not just the one in `GRAPH_SENDER_EMAIL`. To lock it down to only that mailbox, an Exchange Online admin can run (in [Exchange Online PowerShell](https://learn.microsoft.com/en-us/powershell/exchange/connect-to-exchange-online-powershell)):
 ```powershell

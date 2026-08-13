@@ -48,29 +48,38 @@ export function getAdminEmails(env) {
 // Two independent ways an admin ends up excluded from the new-request
 // notification email while keeping full admin access otherwise:
 //  - ADMIN_EMAILS_NO_NOTIFY: an env-var exclude list another admin sets
-//  - store.notifyOptOuts: self-serve, set by clicking the unsubscribe link
-//    in the email itself (see functions/api/notify/unsubscribe.js) — kept in
-//    KV rather than an env var so opting out doesn't require a redeploy.
+//  - store.notifyOptOuts: self-serve, toggled from the "Notifications"
+//    button in the app (or the unsubscribe link in the email) — kept in KV
+//    rather than an env var so it takes effect without a redeploy.
+export function isNotifyExcludedByEnv(env, email) {
+  const lower = (email || '').toLowerCase();
+  return (env.ADMIN_EMAILS_NO_NOTIFY || '')
+    .split(',')
+    .map(s => s.trim().toLowerCase())
+    .filter(Boolean)
+    .includes(lower);
+}
+
+export function isNotifyOptedOut(store, email) {
+  const lower = (email || '').toLowerCase();
+  return (store?.notifyOptOuts || []).some(e => e.toLowerCase() === lower);
+}
+
 export function getNotifyAdminEmails(env, store) {
-  const envExcluded = new Set(
-    (env.ADMIN_EMAILS_NO_NOTIFY || '')
-      .split(',')
-      .map(s => s.trim().toLowerCase())
-      .filter(Boolean)
+  return getAdminEmails(env).filter(email =>
+    !isNotifyExcludedByEnv(env, email) && !isNotifyOptedOut(store, email)
   );
-  const optedOut = new Set((store?.notifyOptOuts || []).map(e => e.toLowerCase()));
-  return getAdminEmails(env).filter(email => {
-    const lower = email.toLowerCase();
-    return !envExcluded.has(lower) && !optedOut.has(lower);
-  });
 }
 
 export function addNotifyOptOut(store, email) {
   const lower = (email || '').trim().toLowerCase();
   if (!lower) return;
-  if (!store.notifyOptOuts.some(e => e.toLowerCase() === lower)) {
-    store.notifyOptOuts.push(lower);
-  }
+  if (!isNotifyOptedOut(store, lower)) store.notifyOptOuts.push(lower);
+}
+
+export function removeNotifyOptOut(store, email) {
+  const lower = (email || '').trim().toLowerCase();
+  store.notifyOptOuts = store.notifyOptOuts.filter(e => e.toLowerCase() !== lower);
 }
 
 export function resolveRole(email, env) {
