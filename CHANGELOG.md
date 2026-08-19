@@ -6,6 +6,13 @@ This log follows [Keep a Changelog](https://keepachangelog.com/) style. Version 
 
 ---
 
+## [2.7.0] - 2026-07-20
+
+### Added
+- Approval confirmation email to the **staff member** whose request it was, not just to admins — `staffApprovedEmail()` in `functions/_lib/emailTemplates.js`, sent alongside the existing admin copy in `functions/api/requests/approve.js`
+- First-person copy ("Your time off is approved") and no unsubscribe link — this is a direct confirmation of the recipient's own request, not a subscribable admin notification, so it isn't gated by `notifyOptOuts`/`ADMIN_EMAILS_NO_NOTIFY`
+- `emailShell()` now takes an optional `footerText` so non-admin-facing emails aren't stuck with the "you're getting this because you're listed as an admin" footer line
+
 ## [2.6.0] - 2026-08-11
 
 ### Added

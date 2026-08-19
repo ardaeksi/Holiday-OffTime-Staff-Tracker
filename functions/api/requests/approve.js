@@ -1,7 +1,7 @@
 import { json } from '../../_lib/http.js';
 import { readStore, writeStore, findPersonById, getNotifyAdminEmails } from '../../_lib/store.js';
 import { sendMail } from '../../_lib/graphMail.js';
-import { approvedRequestEmail, buildUnsubscribeUrl } from '../../_lib/emailTemplates.js';
+import { approvedRequestEmail, staffApprovedEmail, buildUnsubscribeUrl } from '../../_lib/emailTemplates.js';
 
 function uid() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
@@ -65,8 +65,9 @@ export async function onRequestPost({ request, env, data, waitUntil }) {
   // Same best-effort, fire-and-forget, one-per-recipient pattern as the
   // new-request notification in requests/submit.js — see the comment there.
   const adminEmails = getNotifyAdminEmails(env, store);
+  const emailTasks = [];
   if (adminEmails.length) {
-    const notify = Promise.allSettled(adminEmails.map(async adminEmail => {
+    emailTasks.push(Promise.allSettled(adminEmails.map(async adminEmail => {
       const unsubscribeUrl = await buildUnsubscribeUrl(env, adminEmail);
       const { subject, html, text } = approvedRequestEmail(req, env.APP_BASE_URL, unsubscribeUrl);
       return sendMail(env, { toEmails: [adminEmail], subject, html, text });
@@ -74,7 +75,23 @@ export async function onRequestPost({ request, env, data, waitUntil }) {
       results.forEach((r, i) => {
         if (r.status === 'rejected') console.error(`Approval email to ${adminEmails[i]} failed:`, r.reason);
       });
-    });
+    }));
+  }
+
+  // Confirm to the staff member this request actually belongs to — always
+  // sent, unlike the admin copies above, since it's a direct confirmation of
+  // their own request rather than a subscribable admin notification stream
+  // (not gated by notifyOptOuts, which only governs that admin stream).
+  if (req.submittedByEmail) {
+    const { subject, html, text } = staffApprovedEmail(req, env.APP_BASE_URL);
+    emailTasks.push(
+      sendMail(env, { toEmails: [req.submittedByEmail], subject, html, text })
+        .catch(e => console.error(`Approval confirmation email to ${req.submittedByEmail} failed:`, e))
+    );
+  }
+
+  if (emailTasks.length) {
+    const notify = Promise.allSettled(emailTasks);
     if (waitUntil) waitUntil(notify); else await notify;
   }
 

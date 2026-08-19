@@ -55,10 +55,11 @@ export async function buildUnsubscribeUrl(env, email) {
 // ── Shared card shell — every notification email is a white rounded card on
 // a grey ground: a colored header (varies by email), a labeled-fields table,
 // an optional button, then the same admin/unsubscribe footer on all of them.
-function emailShell({ headerHtml, bodyHtml, buttonHtml, unsubscribeUrl }) {
+function emailShell({ headerHtml, bodyHtml, buttonHtml, unsubscribeUrl, footerText }) {
   const unsubscribeHtml = unsubscribeUrl
     ? `<p style="margin:6px 0 0;font-size:11px;line-height:1.5"><a href="${escHtml(unsubscribeUrl)}" style="color:#8a948f;text-decoration:underline">Unsubscribe from these notifications</a></p>`
     : '';
+  const footer = footerText || "Canadian All Care College — you're getting this because you're listed as an admin on the tracker.";
   return `
 <div style="background:#f4f6f5;padding:32px 16px;font-family:'Segoe UI',Arial,sans-serif">
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:480px;margin:0 auto;background:#ffffff;border-radius:16px;border:1px solid #e7ebe9;overflow:hidden">
@@ -67,7 +68,7 @@ function emailShell({ headerHtml, bodyHtml, buttonHtml, unsubscribeUrl }) {
     ${buttonHtml || ''}
     <tr>
       <td style="padding:16px 32px 28px;border-top:1px solid #e7ebe9;text-align:center">
-        <p style="margin:0;font-size:11px;color:#8a948f;line-height:1.5">Canadian All Care College — you're getting this because you're listed as an admin on the tracker.</p>
+        <p style="margin:0;font-size:11px;color:#8a948f;line-height:1.5">${escHtml(footer)}</p>
         ${unsubscribeHtml}
       </td>
     </tr>
@@ -195,6 +196,59 @@ Approved on: ${req.decidedAt ? fmtDateTimeForEmail(req.decidedAt) : '—'}
 ${base ? `\nView it: ${base}` : ''}
 
 Canadian All Care College — you're getting this because you're listed as an admin on the tracker.${unsubscribeUrl ? `\nUnsubscribe: ${unsubscribeUrl}` : ''}`;
+
+  return { subject, html, text };
+}
+
+// req: same approved request object as approvedRequestEmail() above, but this
+// one goes to the person the time off actually belongs to (req.submittedByEmail)
+// — first-person copy, no unsubscribe link (it's a direct confirmation of
+// their own request, not a subscribable admin notification stream).
+export function staffApprovedEmail(req, appUrl) {
+  const subject = 'Your time off request was approved!';
+  const dateLine = dateRangeLine(req);
+  const noteLine = req.note ? escHtml(req.note) : '<span style="color:#8a948f;font-style:italic">No reason given</span>';
+  const decidedByLine = req.decidedByEmail ? escHtml(req.decidedByEmail) : 'unknown';
+  const decidedOnLine = req.decidedAt ? escHtml(fmtDateTimeForEmail(req.decidedAt)) : '—';
+  const base = appUrl ? normalizeBaseUrl(appUrl) : null;
+
+  const checkBadgeHtml = `<div style="width:56px;height:56px;line-height:52px;border-radius:50%;background:rgba(255,255,255,0.16);border:2px solid rgba(255,255,255,0.55);margin:0 auto 12px;font-size:28px;font-weight:700;color:#ffffff;font-family:Arial,sans-serif">&#10003;</div>`;
+
+  const headerHtml = `
+    <tr>
+      <td style="background:linear-gradient(135deg,#14532d 0%,#1b6b3a 55%,#3aad6a 100%);padding:28px 32px;text-align:center">
+        ${checkBadgeHtml}
+        <p style="margin:0;color:rgba(255,255,255,0.7);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px">Holiday / Off Time Staff Tracker</p>
+      </td>
+    </tr>`;
+
+  const bodyHtml = `
+    <tr>
+      <td style="padding:30px 32px 6px;text-align:center">
+        <h1 style="margin:0 0 8px;font-size:21px;font-weight:800;color:#1a1f1c;line-height:1.3">Your time off is approved</h1>
+        <p style="margin:0;font-size:14px;color:#64726c;line-height:1.5">Good news — your time-off request has been approved.</p>
+      </td>
+    </tr>` + detailsTableHtml([
+      ['Dates', escHtml(dateLine)],
+      ['Note', noteLine],
+      ['Approved By', decidedByLine],
+      ['Approved On', decidedOnLine]
+    ]);
+
+  const html = emailShell({
+    headerHtml, bodyHtml,
+    buttonHtml: actionButtonHtml(base, 'View in Tracker'),
+    footerText: 'Canadian All Care College — Holiday / Off Time Staff Tracker'
+  });
+
+  const text = `Good news — your time-off request has been approved.
+Dates: ${dateLine}
+Note: ${req.note || 'No reason given'}
+Approved by: ${req.decidedByEmail || 'unknown'}
+Approved on: ${req.decidedAt ? fmtDateTimeForEmail(req.decidedAt) : '—'}
+${base ? `\nView it: ${base}` : ''}
+
+Canadian All Care College — Holiday / Off Time Staff Tracker`;
 
   return { subject, html, text };
 }
