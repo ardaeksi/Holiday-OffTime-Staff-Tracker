@@ -1,0 +1,13 @@
+{
+  "name": "holiday-off-time-staff-tracker",
+  "private": true,
+  "type": "module",
+  "description": "Canadian All Care College — internal holiday/off-time tracker. No build step (see README) — this package.json exists only to run the backend test suite.",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "test": "node --test"
+  },
+  "devDependencies": {}
+}
