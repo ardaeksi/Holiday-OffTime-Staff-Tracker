@@ -28,6 +28,14 @@ function fmtDateTimeForEmail(ms) {
   return `${MN[d.getUTCMonth()]} ${d.getUTCDate()}, ${d.getUTCFullYear()}, ${h12}:${String(d.getUTCMinutes()).padStart(2, '0')} ${period} UTC`;
 }
 
+// 'sick' is the one value that changes wording anywhere in these templates —
+// everything else reads exactly as it did before leave types existed, so
+// existing 'vacation' emails (and any request from before this feature) look
+// unchanged.
+function leaveTypeLabel(req) {
+  return req.leaveType === 'sick' ? 'Sick / Medical Leave' : 'Vacation / Holiday';
+}
+
 function dateRangeLine(req) {
   return req.halfDay
     ? `${fmtDateForEmail(req.startDate)} (half day, off from ${req.halfDayFrom || 'TBD'})`
@@ -111,7 +119,10 @@ function detailsTableHtml(rows) {
 // appUrl: env.APP_BASE_URL — used for the logo, the button link, and building the unsubscribe link
 // unsubscribeUrl: this recipient's personal link, from buildUnsubscribeUrl() above (or null to omit it)
 export function newRequestNotificationEmail(req, appUrl, unsubscribeUrl) {
-  const subject = `${req.personName} put a new request on Vacation Tracker!`;
+  const subject = req.leaveType === 'sick'
+    ? `${req.personName} requested sick/medical leave!`
+    : `${req.personName} put a new request on Vacation Tracker!`;
+  const typeLine = leaveTypeLabel(req);
   const dateLine = dateRangeLine(req);
   const noteLine = req.note ? escHtml(req.note) : '<span style="color:#8a948f;font-style:italic">No description provided</span>';
   const base = appUrl ? normalizeBaseUrl(appUrl) : null;
@@ -135,6 +146,7 @@ export function newRequestNotificationEmail(req, appUrl, unsubscribeUrl) {
         <p style="margin:0;font-size:14px;color:#64726c;line-height:1.5"><strong style="color:#1a1f1c">${escHtml(req.personName)}</strong> submitted a request — it's waiting for your review.</p>
       </td>
     </tr>` + detailsTableHtml([
+      ['Type', escHtml(typeLine)],
       ['Dates', escHtml(dateLine)],
       ['Note', noteLine]
     ]);
@@ -142,6 +154,7 @@ export function newRequestNotificationEmail(req, appUrl, unsubscribeUrl) {
   const html = emailShell({ headerHtml, bodyHtml, buttonHtml: actionButtonHtml(base, 'Review Request'), unsubscribeUrl });
 
   const text = `${req.personName} submitted a new time-off request.
+Type: ${typeLine}
 Dates: ${dateLine}
 Note: ${req.note || 'No description provided'}
 ${base ? `\nReview it: ${base}` : ''}
@@ -154,7 +167,10 @@ Canadian All Care College — you're getting this because you're listed as an ad
 // req: a request object as stored after /api/requests/approve marks it approved
 // (has decidedAt/decidedByEmail set — see functions/api/requests/approve.js)
 export function approvedRequestEmail(req, appUrl, unsubscribeUrl) {
-  const subject = `${req.personName}'s time off request was approved!`;
+  const subject = req.leaveType === 'sick'
+    ? `${req.personName}'s sick/medical leave was approved!`
+    : `${req.personName}'s time off request was approved!`;
+  const typeLine = leaveTypeLabel(req);
   const dateLine = dateRangeLine(req);
   const noteLine = req.note ? escHtml(req.note) : '<span style="color:#8a948f;font-style:italic">No reason given</span>';
   const decidedByLine = req.decidedByEmail ? escHtml(req.decidedByEmail) : 'unknown';
@@ -180,6 +196,7 @@ export function approvedRequestEmail(req, appUrl, unsubscribeUrl) {
         <p style="margin:0;font-size:14px;color:#64726c;line-height:1.5"><strong style="color:#1a1f1c">${escHtml(req.personName)}</strong>'s time-off request has been approved.</p>
       </td>
     </tr>` + detailsTableHtml([
+      ['Type', escHtml(typeLine)],
       ['Dates', escHtml(dateLine)],
       ['Note', noteLine],
       ['Approved By', decidedByLine],
@@ -189,6 +206,7 @@ export function approvedRequestEmail(req, appUrl, unsubscribeUrl) {
   const html = emailShell({ headerHtml, bodyHtml, buttonHtml: actionButtonHtml(base, 'View in Tracker'), unsubscribeUrl });
 
   const text = `${req.personName}'s time-off request was approved.
+Type: ${typeLine}
 Dates: ${dateLine}
 Note: ${req.note || 'No reason given'}
 Approved by: ${req.decidedByEmail || 'unknown'}
@@ -205,7 +223,8 @@ Canadian All Care College — you're getting this because you're listed as an ad
 // — first-person copy, no unsubscribe link (it's a direct confirmation of
 // their own request, not a subscribable admin notification stream).
 export function staffApprovedEmail(req, appUrl) {
-  const subject = 'Your time off request was approved!';
+  const subject = req.leaveType === 'sick' ? 'Your sick/medical leave was approved!' : 'Your time off request was approved!';
+  const typeLine = leaveTypeLabel(req);
   const dateLine = dateRangeLine(req);
   const noteLine = req.note ? escHtml(req.note) : '<span style="color:#8a948f;font-style:italic">No reason given</span>';
   const decidedByLine = req.decidedByEmail ? escHtml(req.decidedByEmail) : 'unknown';
@@ -229,6 +248,7 @@ export function staffApprovedEmail(req, appUrl) {
         <p style="margin:0;font-size:14px;color:#64726c;line-height:1.5">Good news — your time-off request has been approved.</p>
       </td>
     </tr>` + detailsTableHtml([
+      ['Type', escHtml(typeLine)],
       ['Dates', escHtml(dateLine)],
       ['Note', noteLine],
       ['Approved By', decidedByLine],
@@ -242,6 +262,7 @@ export function staffApprovedEmail(req, appUrl) {
   });
 
   const text = `Good news — your time-off request has been approved.
+Type: ${typeLine}
 Dates: ${dateLine}
 Note: ${req.note || 'No reason given'}
 Approved by: ${req.decidedByEmail || 'unknown'}
