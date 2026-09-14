@@ -1,5 +1,5 @@
 import { json } from '../../_lib/http.js';
-import { readStore, writeStore, findPersonByEmail, getNotifyAdminEmails } from '../../_lib/store.js';
+import { readStore, writeStore, findPersonByEmail, getNotifyAdminEmails, normalizeLeaveType } from '../../_lib/store.js';
 import { sendMail } from '../../_lib/graphMail.js';
 import { newRequestNotificationEmail, buildUnsubscribeUrl } from '../../_lib/emailTemplates.js';
 
@@ -40,6 +40,7 @@ export async function onRequestPost({ request, env, data, waitUntil }) {
   }
 
   const { startDate, endDate, note, worksSaturday, halfDay, halfDayFrom } = body;
+  const leaveType = normalizeLeaveType(body.leaveType);
   if (!startDate || !endDate) return json({ error: 'Start and end date are required.' }, 400);
   if (endDate < startDate) return json({ error: 'End date must be on or after the start date.' }, 400);
 
@@ -64,6 +65,7 @@ export async function onRequestPost({ request, env, data, waitUntil }) {
     personId: match ? match.person.id : null,
     personName: match ? match.person.name : session.name,
     submittedByEmail: session.email,
+    leaveType,
     startDate,
     endDate,
     note: (note || '').trim().slice(0, 500),
