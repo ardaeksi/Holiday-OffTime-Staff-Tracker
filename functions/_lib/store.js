@@ -1,5 +1,13 @@
 export const KV_KEY = 'tracker-data';
 
+// The only two leave types the app knows about. Anything else (missing field
+// on data older than this feature, a bad value from a buggy/old client, etc.)
+// normalizes to 'vacation' — the type every entry implicitly was before this
+// distinction existed, so old data keeps meaning what it always meant.
+export function normalizeLeaveType(v) {
+  return v === 'sick' ? 'sick' : 'vacation';
+}
+
 export function migrate(d) {
   if (!d || typeof d !== 'object') d = {};
   if (!Array.isArray(d.instructors)) d.instructors = [];
@@ -10,7 +18,9 @@ export function migrate(d) {
   [...d.instructors, ...d.employees].forEach(p => {
     if (typeof p.email !== 'string') p.email = '';
     if (!Array.isArray(p.vacations)) p.vacations = [];
+    p.vacations.forEach(v => { v.leaveType = normalizeLeaveType(v.leaveType); });
   });
+  d.requests.forEach(r => { r.leaveType = normalizeLeaveType(r.leaveType); });
   return d;
 }
 
