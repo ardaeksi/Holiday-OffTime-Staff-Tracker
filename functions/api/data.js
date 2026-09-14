@@ -1,5 +1,5 @@
 import { json } from '../_lib/http.js';
-import { readStore, writeStore, findPersonByEmail } from '../_lib/store.js';
+import { readStore, writeStore, findPersonByEmail, normalizeLeaveType } from '../_lib/store.js';
 
 function uid() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
@@ -43,6 +43,12 @@ export async function onRequestPost({ request, env, data }) {
   if (!Array.isArray(body.instructors) || !Array.isArray(body.employees)) {
     return json({ error: 'Invalid data' }, 400);
   }
+  // Defensive, not just trusting the client: every vacation gets a valid
+  // leaveType regardless of what this particular save sent (old cached page,
+  // a bug, a direct API call) — same normalization migrate() applies on read.
+  [...body.instructors, ...body.employees].forEach(p => {
+    (p.vacations || []).forEach(v => { v.leaveType = normalizeLeaveType(v.leaveType); });
+  });
 
   try {
     // The admin client only ever round-trips instructors/employees, so we
@@ -90,6 +96,7 @@ export async function onRequestPost({ request, env, data }) {
               category,
               personId: oldPerson.id,
               personName: newPerson.name,
+              leaveType: normalizeLeaveType(oldVac.leaveType),
               startDate: oldVac.startDate,
               endDate: oldVac.endDate,
               halfDay: !!oldVac.halfDay,
