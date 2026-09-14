@@ -102,6 +102,8 @@
   .cat-tag { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.3px; padding: 2px 6px; border-radius: 8px; display: inline-block; margin-left: 6px; vertical-align: 1px; white-space: nowrap; }
   .cat-tag-instructors { background: var(--navy); color: var(--white); }
   .cat-tag-employees   { background: var(--dark-green); color: var(--white); }
+  .cat-tag-leave-vacation { background: var(--orange); color: var(--white); }
+  .cat-tag-leave-sick     { background: var(--halfday); color: var(--white); }
 
   /* ── MAIN ────────────────────────────────────────────── */
   .main-band { background: var(--grey-50); }
@@ -148,11 +150,19 @@
   .card-emp  .card-name { color: var(--dark-green); }
   .card-meta { font-size: 12.5px; color: var(--grey-500); margin: 0; }
   .year-summary { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
-  .year-pill { background: var(--navy); color: var(--white); border-radius: 20px; padding: 6px 14px; text-align: center; font-size: 13px; font-weight: 700; line-height: 1.35; min-width: 100px; }
+  /* Two pills, one per leave type, replacing what used to be a single combined
+     "year off time" pill — each colored to match its type everywhere else
+     (Vacation/Holiday = orange, Sick/Medical = purple) so which is which
+     never depends on reading the small-print label underneath. */
+  .year-pills { display: flex; gap: 6px; }
+  .year-pill { background: var(--navy); color: var(--white); border-radius: 14px; padding: 6px 11px; text-align: center; font-size: 13px; font-weight: 700; line-height: 1.35; min-width: 84px; }
   .year-pill .pill-top { color: var(--green-light); font-size: 15px; font-weight: 800; }
   .card-emp .year-pill { background: var(--dark-green); }
   .card-emp .year-pill .pill-top { color: var(--white); }
   .year-pill .pill-sub { font-size: 10.5px; color: rgba(255,255,255,0.7); margin-top: 1px; }
+  .year-pill-vacation, .card-emp .year-pill-vacation { background: var(--orange); }
+  .year-pill-sick,     .card-emp .year-pill-sick     { background: var(--halfday); }
+  .year-pill-vacation .pill-top, .year-pill-sick .pill-top { color: var(--white); }
   .year-pill .pill-bot { font-size: 10px; color: rgba(255,255,255,0.45); text-transform: uppercase; letter-spacing: 0.4px; margin-top: 1px; }
   .chevron { width: 20px; height: 20px; color: var(--grey-500); flex-shrink: 0; transition: transform 0.18s; }
   .card-collapsed .chevron { transform: rotate(-90deg); }
@@ -190,8 +200,8 @@
   .cal-grid { display: grid; grid-template-columns: repeat(7, 26px); gap: 2px; }
   .cal-dh { width: 26px; height: 18px; font-size: 9.5px; font-weight: 700; color: var(--grey-500); text-align: center; display: flex; align-items: center; justify-content: center; }
   .cal-cell { width: 26px; height: 26px; font-size: 11px; font-weight: 500; border-radius: 4px; display: flex; align-items: center; justify-content: center; color: var(--text); }
-  .cal-vac { background: var(--orange); color: var(--white); font-weight: 700; border-radius: 3px; }
-  .cal-vac-half { background: var(--halfday); }
+  .cal-vac { background: var(--orange); color: var(--white); font-weight: 700; border-radius: 3px; } /* default: vacation/holiday */
+  .cal-vac-sick { background: var(--halfday); } /* overrides to purple when the day is (at least partly) sick/medical leave */
   .cal-vac-start { border-radius: 4px 0 0 4px; }
   .cal-vac-end   { border-radius: 0 4px 4px 0; }
   .cal-vac-mid   { border-radius: 0; }
@@ -204,9 +214,9 @@
   .vacation-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; }
   .vac-item { display: flex; align-items: center; gap: 12px; padding: 11px 14px; background: var(--grey-50); border-radius: 8px; border: 1px solid var(--grey-100); transition: border-color 0.1s; }
   .vac-item:hover { border-color: var(--grey-300); }
-  .vac-icon { width: 34px; height: 34px; border-radius: 8px; background: linear-gradient(135deg, var(--dark-green), var(--green-light)); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
-  .vac-icon.vac-icon-active { background: linear-gradient(135deg, var(--orange), #fb923c); }
-  .vac-icon.vac-icon-half { background: linear-gradient(135deg, var(--halfday), #a78bfa); }
+  .vac-icon { width: 34px; height: 34px; border-radius: 8px; background: linear-gradient(135deg, var(--dark-green), var(--green-light)); display: flex; align-items: center; justify-content: center; flex-shrink: 0; } /* fallback only — every entry has a leaveType, so -vacation/-sick below always wins */
+  .vac-icon.vac-icon-vacation { background: linear-gradient(135deg, var(--orange), #fb923c); }
+  .vac-icon.vac-icon-sick     { background: linear-gradient(135deg, var(--halfday), #a78bfa); }
   .vac-icon svg { color: var(--white); }
   .vac-dates { flex: 1; min-width: 0; }
   .vac-date-range { font-size: 14px; font-weight: 700; color: var(--navy); margin: 0 0 2px; }
@@ -215,7 +225,8 @@
   .vac-dur-main { font-size: 13px; font-weight: 700; color: var(--dark-green); white-space: nowrap; }
   .vac-dur-sub  { font-size: 11px; color: var(--grey-500); white-space: nowrap; }
   .vac-active-tag { font-size: 10.5px; font-weight: 700; color: var(--orange); background: #fff7ed; border: 1px solid #fed7aa; border-radius: 10px; padding: 2px 7px; white-space: nowrap; }
-  .hd-tag { font-size: 10px; font-weight: 700; color: var(--white); background: var(--halfday); border-radius: 10px; padding: 2px 7px; white-space: nowrap; display: inline-block; margin-left: 6px; vertical-align: 1px; }
+  /* Neutral on purpose — purple is now reserved for the Sick/Medical leave type (see cat-tag-leave-sick), and Half Day is an orthogonal "duration shape" that applies to either type. */
+  .hd-tag { font-size: 10px; font-weight: 700; color: var(--white); background: var(--navy-mid); border-radius: 10px; padding: 2px 7px; white-space: nowrap; display: inline-block; margin-left: 6px; vertical-align: 1px; }
 
   /* ── REQUEST ITEMS (dropdown + Log) — stacked so action buttons never
      squeeze the text column down to nothing on narrow widths ────────── */
@@ -276,6 +287,9 @@
   .radio-option input { display: none; }
   .radio-label { display: block; padding: 8px 10px; border: 1.5px solid var(--grey-200); border-radius: var(--radius-sm); text-align: center; font-size: 13px; font-weight: 600; color: var(--grey-700); background: var(--grey-50); transition: all 0.1s; }
   .radio-option input:checked + .radio-label { background: var(--navy); border-color: var(--navy); color: var(--white); }
+  /* Leave Type radios highlight in their own type color instead of the generic navy, so the picker itself previews the color that entry will show up as everywhere else. */
+  #rLeaveVacation:checked + .radio-label { background: var(--orange); border-color: var(--orange); }
+  #rLeaveSick:checked + .radio-label     { background: var(--halfday); border-color: var(--halfday); }
   .checkbox-field { display: flex; align-items: center; gap: 9px; cursor: pointer; padding: 9px 12px; border-radius: var(--radius-sm); border: 1.5px solid var(--grey-200); background: var(--grey-50); }
   .checkbox-field input { width: 16px; height: 16px; accent-color: var(--green); cursor: pointer; flex-shrink: 0; margin: 0; }
   .checkbox-field span { font-size: 13px; font-weight: 600; color: var(--grey-700); text-transform: none; letter-spacing: normal; }
@@ -487,6 +501,12 @@
       </svg>
       Add Vacation / Off Time
     </button>
+    <button class="btn btn-ghost" id="openAddStaffModal" data-role="admin">
+      <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path stroke-linecap="round" d="M19 8v6M22 11h-6"/>
+      </svg>
+      Add Staff Member
+    </button>
     <button class="btn btn-primary" id="openRequestModal" data-role="staff">
       <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
         <path stroke-linecap="round" d="M12 5v14M5 12h14"/>
@@ -546,6 +566,15 @@
       <datalist id="nameSuggestions"></datalist>
       <p class="field-hint">Type a new name or select an existing staff member.</p>
     </div>
+
+    <div class="field">
+      <label>Leave Type</label>
+      <div class="radio-group">
+        <label class="radio-option"><input type="radio" name="leaveType" value="vacation" id="rLeaveVacation" checked><span class="radio-label">Vacation / Holiday</span></label>
+        <label class="radio-option"><input type="radio" name="leaveType" value="sick"     id="rLeaveSick">          <span class="radio-label">Sick / Medical</span></label>
+      </div>
+    </div>
+
     <div class="field">
       <label for="fStartDate">Start Date</label>
       <input type="date" id="fStartDate">
@@ -621,6 +650,36 @@
   </div>
 </div>
 
+<!-- ── ADD STAFF MEMBER MODAL (admin) ───────────────────── -->
+<div class="modal-overlay" id="addStaffModalOverlay">
+  <div class="modal" role="dialog" aria-modal="true">
+    <div class="modal-title">Add Staff Member</div>
+    <div class="form-error" id="addStaffFormError"></div>
+    <p class="field-hint" style="margin:-4px 0 14px">Enter their Microsoft sign-in email — their name is looked up automatically and they're added with no vacation entries yet, so they show up before anyone requests time off.</p>
+
+    <div class="field">
+      <label>Staff Category</label>
+      <div class="radio-group">
+        <label class="radio-option"><input type="radio" name="asCat" value="instructors" id="asCatInst" checked><span class="radio-label">Instructor</span></label>
+        <label class="radio-option"><input type="radio" name="asCat" value="employees"   id="asCatEmp">          <span class="radio-label">Office Employee</span></label>
+      </div>
+    </div>
+    <div class="field">
+      <label for="asEmail">Sign-in Email</label>
+      <input type="text" id="asEmail" placeholder="name@canadianallcare.com" autocomplete="off">
+    </div>
+    <div class="field field-hidden" id="asNameWrap">
+      <label for="asName">Name</label>
+      <input type="text" id="asName" placeholder="e.g. Jane Smith" autocomplete="off">
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="closeAddStaffModal">Cancel</button>
+      <button class="btn btn-primary" id="saveAddStaff">Add</button>
+    </div>
+  </div>
+</div>
+
 <!-- ── DENY REQUEST MODAL (admin) ───────────────────────── -->
 <div class="modal-overlay" id="denyModalOverlay">
   <div class="modal" role="dialog" aria-modal="true">
@@ -656,7 +715,7 @@
   'use strict';
 
   const STORAGE_KEY = 'holidayTrackerData_v1';
-  const APP_VERSION = '2.7.0';
+  const APP_VERSION = '2.9.0';
   const THIS_YEAR   = new Date().getFullYear();
   const TODAY_STR   = new Date().toISOString().slice(0, 10);
 
@@ -672,7 +731,10 @@
   function migrate(d) {
     if (!Array.isArray(d.instructors)) d.instructors = [];
     if (!Array.isArray(d.employees))   d.employees   = [];
-    [...d.instructors, ...d.employees].forEach(p => { if (typeof p.email !== 'string') p.email = ''; });
+    [...d.instructors, ...d.employees].forEach(p => {
+      if (typeof p.email !== 'string') p.email = '';
+      (p.vacations || []).forEach(v => { if (v.leaveType !== 'sick') v.leaveType = 'vacation'; });
+    });
     return d;
   }
 
@@ -958,6 +1020,15 @@
   function initials(name) { return name.trim().split(/\s+/).map(w=>w[0].toUpperCase()).slice(0,2).join(''); }
   function isActiveToday(s, e) { return s <= TODAY_STR && TODAY_STR <= e; }
   function escHtml(str) { const d = document.createElement('div'); d.textContent = str; return d.innerHTML; }
+  // Small colored pill (orange/purple) shown wherever a vacation entry or
+  // request appears as text — the icon/calendar colors carry the same
+  // distinction, but color alone isn't enough (accessibility, and the
+  // request/log rows have no icon at all), so this is the text pairing.
+  function leaveTypeTagHtml(leaveType) {
+    return leaveType === 'sick'
+      ? '<span class="cat-tag cat-tag-leave-sick">Sick/Medical</span>'
+      : '<span class="cat-tag cat-tag-leave-vacation">Vacation</span>';
+  }
 
   // Two vacation entries can overlap (double-booked by mistake, or a staff
   // request that overlaps something already on the books) — a day covered by
@@ -971,10 +1042,20 @@
     return days;
   }
 
-  function yearTotals(person, year) {
+  function vacationsByType(vacations, leaveType) {
+    return vacations.filter(v => (v.leaveType || 'vacation') === leaveType);
+  }
+
+  // leaveType omitted → combined total across both types (used for the
+  // card-footer "this year" rollup); passed → totals for just that type
+  // (used for the two split year-pills — see renderCard). Each type's days
+  // are deduped independently, so an entry that somehow overlaps a
+  // differently-typed entry on the same day still counts once per bucket.
+  function yearTotals(person, year, leaveType) {
+    const vacs = leaveType ? vacationsByType(person.vacations, leaveType) : person.vacations;
     let count = 0;
-    person.vacations.forEach(v => { if (daysInYear(v.startDate, v.endDate, year, v.worksSaturday, v.halfDay) > 0) count++; });
-    const days = dedupedDayCount(person.vacations, year);
+    vacs.forEach(v => { if (daysInYear(v.startDate, v.endDate, year, v.worksSaturday, v.halfDay) > 0) count++; });
+    const days = dedupedDayCount(vacs, year);
     return { totalDays: days, weeks: Math.floor(days/7), remDays: days%7, hours: days*8, count };
   }
 
@@ -984,18 +1065,25 @@
   }
 
   // ── Mini Calendar ──────────────────────────────────────
-  // Map instead of Set so each off-date can carry whether it's a half day —
-  // if any vacation covering that date is a full day, it's shown as full.
+  // Map instead of Set so each off-date can carry whether it's a half day and
+  // which leave type(s) cover it — if any vacation covering that date is a
+  // full day, it's shown as full; if any covering entry is sick/medical, the
+  // day is flagged sick (purple wins over vacation orange on the rare day
+  // that's somehow covered by both — it's the one worth noticing at a glance).
   function buildVacDateSet(vacations) {
     const map = new Map();
     vacations.forEach(v => {
       let d = new Date(v.startDate+'T00:00:00');
       const end = new Date(v.endDate+'T00:00:00');
+      const isSick = v.leaveType === 'sick';
       while (d <= end) {
         if (isOffDay(d.getDay(), v.worksSaturday)) {
           const ds = d.toISOString().slice(0,10);
           const existing = map.get(ds);
-          map.set(ds, { half: existing ? (existing.half && !!v.halfDay) : !!v.halfDay });
+          map.set(ds, {
+            half: existing ? (existing.half && !!v.halfDay) : !!v.halfDay,
+            sick: existing ? (existing.sick || isSick) : isSick
+          });
         }
         d.setDate(d.getDate()+1);
       }
@@ -1020,7 +1108,7 @@
         const next=new Date(ds+'T00:00:00'); next.setDate(next.getDate()+1);
         const hp=vacDates.has(prev.toISOString().slice(0,10)), hn=vacDates.has(next.toISOString().slice(0,10));
         vc=!hp&&!hn?'cal-vac':!hp?'cal-vac cal-vac-start':!hn?'cal-vac cal-vac-end':'cal-vac cal-vac-mid';
-        if (entry.half) vc += ' cal-vac-half';
+        if (entry.sick) vc += ' cal-vac-sick';
       }
       cells += `<div class="${['cal-cell',vc,isT?'cal-today':'',isW&&!isV?'cal-weekend':''].filter(Boolean).join(' ')}">${d}</div>`;
     }
@@ -1034,7 +1122,7 @@
     const first = new Date(allDates[0]+'T00:00:00'), last = new Date(allDates[allDates.length-1]+'T00:00:00');
     const months=[], cur=new Date(first.getFullYear(), first.getMonth(), 1), lim=new Date(last.getFullYear(), last.getMonth(), 1);
     while (cur<=lim && months.length<24) { months.push({y:cur.getFullYear(),m:cur.getMonth()}); cur.setMonth(cur.getMonth()+1); }
-    return `<div class="mini-cal-wrap"><div class="mini-cal-header"><span class="mini-cal-title">Vacation Calendar</span><div class="mini-cal-legend"><span class="legend-dot"><span class="legend-swatch" style="background:var(--orange)"></span>Off time</span><span class="legend-dot"><span class="legend-swatch" style="background:var(--navy);border-radius:50%"></span>Today</span></div></div><div class="mini-cal-scroll">${months.map(({y,m})=>renderMonth(y,m,vacDates)).join('')}</div></div>`;
+    return `<div class="mini-cal-wrap"><div class="mini-cal-header"><span class="mini-cal-title">Vacation Calendar</span><div class="mini-cal-legend"><span class="legend-dot"><span class="legend-swatch" style="background:var(--orange)"></span>Vacation/Holiday</span><span class="legend-dot"><span class="legend-swatch" style="background:var(--halfday)"></span>Sick/Medical</span><span class="legend-dot"><span class="legend-swatch" style="background:var(--navy);border-radius:50%"></span>Today</span></div></div><div class="mini-cal-scroll">${months.map(({y,m})=>renderMonth(y,m,vacDates)).join('')}</div></div>`;
   }
 
   // ── Countdown Helpers ──────────────────────────────────
@@ -1042,9 +1130,10 @@
     const today = new Date(TODAY_STR+'T00:00:00');
     const active = person.vacations.find(v => isActiveToday(v.startDate, v.endDate));
     if (active) {
+      const isSick = active.leaveType === 'sick';
       const days = Math.round((new Date(active.endDate+'T00:00:00') - today) / 86400000);
       const main = days===0?'Ends today':days===1?'Ends tomorrow':`Ends in ${days} days`;
-      return `<div class="hdr-countdown hdr-cd-active"><div class="hdc-icon">🏖</div><div class="hdc-text"><div class="hdc-main">${main}</div><div class="hdc-sub">${fmtDate(active.endDate)}</div></div><div class="hdc-right"><div class="hdc-num" style="color:var(--orange)">${days===0?'—':days}</div><div class="hdc-unit">${days<=1?(days===0?'today':'day'):'days'}</div></div></div>`;
+      return `<div class="hdr-countdown hdr-cd-active"><div class="hdc-icon">${isSick?'🤒':'🏖'}</div><div class="hdc-text"><div class="hdc-main">${main}</div><div class="hdc-sub">${fmtDate(active.endDate)}</div></div><div class="hdc-right"><div class="hdc-num" style="color:${isSick?'var(--halfday)':'var(--orange)'}">${days===0?'—':days}</div><div class="hdc-unit">${days<=1?(days===0?'today':'day'):'days'}</div></div></div>`;
     }
     const upcoming = person.vacations.filter(v=>v.startDate>TODAY_STR).sort((a,b)=>a.startDate.localeCompare(b.startDate))[0];
     if (!upcoming) return '';
@@ -1053,19 +1142,26 @@
     return `<div class="hdr-countdown hdr-cd-upcoming"><div class="hdc-icon">📅</div><div class="hdc-text"><div class="hdc-main">${main}</div><div class="hdc-sub">${fmtDate(upcoming.startDate)}</div></div><div class="hdc-right"><div class="hdc-num" style="color:var(--navy-mid)">${days}</div><div class="hdc-unit">${days===1?'day':'days'}</div></div></div>`;
   }
 
+  // Both countdown blocks are type-aware — a sick-leave entry gets its own
+  // wording, icon and (purple) color rather than always reading "Vacation"
+  // with a 🏖 beach icon, which would otherwise misrepresent sick leave.
   function renderCountdown(person) {
     const today = new Date(TODAY_STR+'T00:00:00');
     const active = person.vacations.find(v => isActiveToday(v.startDate, v.endDate));
     if (active) {
+      const isSick = active.leaveType === 'sick';
+      const noun = isSick ? 'Sick leave' : 'Vacation';
       const days = Math.round((new Date(active.endDate+'T00:00:00') - today) / 86400000);
-      const line = days===0?'Vacation ends today':days===1?'Vacation ends tomorrow':`Vacation ends in ${days} days`;
-      return `<div class="vac-countdown vac-countdown-active"><div class="vcd-icon">🏖</div><div class="vcd-left"><div class="vcd-label">Currently on Vacation</div><div class="vcd-line1">${escHtml(line)}</div><div class="vcd-line2">Return date: ${fmtDate(active.endDate)}</div></div><div class="vcd-right"><div class="vcd-count" style="color:var(--orange)">${days===0?'—':days}</div><div class="vcd-unit">${days<=1?(days===0?'today':'day'):'days'}</div></div></div>`;
+      const line = days===0?`${noun} ends today`:days===1?`${noun} ends tomorrow`:`${noun} ends in ${days} days`;
+      return `<div class="vac-countdown vac-countdown-active"><div class="vcd-icon">${isSick?'🤒':'🏖'}</div><div class="vcd-left"><div class="vcd-label">${isSick?'Currently on Sick Leave':'Currently on Vacation'}</div><div class="vcd-line1">${escHtml(line)}</div><div class="vcd-line2">Return date: ${fmtDate(active.endDate)}</div></div><div class="vcd-right"><div class="vcd-count" style="color:${isSick?'var(--halfday)':'var(--orange)'}">${days===0?'—':days}</div><div class="vcd-unit">${days<=1?(days===0?'today':'day'):'days'}</div></div></div>`;
     }
     const upcoming = person.vacations.filter(v=>v.startDate>TODAY_STR).sort((a,b)=>a.startDate.localeCompare(b.startDate))[0];
     if (!upcoming) return '';
+    const isSick = upcoming.leaveType === 'sick';
+    const noun = isSick ? 'Sick leave' : 'Vacation';
     const days = Math.round((new Date(upcoming.startDate+'T00:00:00') - today) / 86400000);
-    const line = days===1?'Vacation starts tomorrow':`Vacation starts in ${days} days`;
-    return `<div class="vac-countdown vac-countdown-upcoming"><div class="vcd-icon">📅</div><div class="vcd-left"><div class="vcd-label">Next Vacation</div><div class="vcd-line1">${escHtml(line)}</div><div class="vcd-line2">Start date: ${fmtDate(upcoming.startDate)}</div></div><div class="vcd-right"><div class="vcd-count" style="color:var(--navy-mid)">${days}</div><div class="vcd-unit">${days===1?'day':'days'}</div></div></div>`;
+    const line = days===1?`${noun} starts tomorrow`:`${noun} starts in ${days} days`;
+    return `<div class="vac-countdown vac-countdown-upcoming"><div class="vcd-icon">📅</div><div class="vcd-left"><div class="vcd-label">${isSick?'Next Sick Leave':'Next Vacation'}</div><div class="vcd-line1">${escHtml(line)}</div><div class="vcd-line2">Start date: ${fmtDate(upcoming.startDate)}</div></div><div class="vcd-right"><div class="vcd-count" style="color:var(--navy-mid)">${days}</div><div class="vcd-unit">${days===1?'day':'days'}</div></div></div>`;
   }
 
   // ── Stats & Tabs ───────────────────────────────────────
@@ -1172,11 +1268,14 @@
       : a.halfDay
         ? `Half day deleted: ${escHtml(fmtDate(a.startDate))}`
         : `Vacation deleted: ${escHtml(fmtRange(a.startDate, a.endDate))}`;
+    // Only a vacation-entry deletion has a leaveType to show — a whole-person
+    // deletion spans both types, so no single tag would be meaningful there.
+    const leaveTag = a.type === 'vacation-deleted' ? leaveTypeTagHtml(a.leaveType) : '';
 
     return `
     <div class="vac-item">
       <div class="vac-dates">
-        <p class="vac-date-range">${escHtml(a.personName)} ${catTag}</p>
+        <p class="vac-date-range">${escHtml(a.personName)} ${catTag}${leaveTag}</p>
         <p class="vac-note">${line}</p>
         <p class="vac-note">by ${who}${when ? ' on ' + when : ''}</p>
       </div>
@@ -1194,9 +1293,11 @@
 
     // A first-time requester has no category yet — Azure has no concept of
     // Instructor vs. Office Employee, so the admin picks it right when approving.
+    // Colored navy-mid rather than reusing orange/purple — those are now
+    // reserved for the leave-type tag right next to this one.
     const catTag = req.category
       ? `<span class="cat-tag cat-tag-${req.category}">${req.category === 'instructors' ? 'Instructor' : 'Office Employee'}</span>`
-      : `<span class="cat-tag" style="background:var(--orange);color:var(--white)">New</span>`;
+      : `<span class="cat-tag" style="background:var(--navy-mid);color:var(--white)">New</span>`;
 
     let actionsHtml;
     if (req.status === 'pending') {
@@ -1243,7 +1344,7 @@
     <div class="req-item" data-req-id="${req.id}">
       <div class="vac-dates">
         <div class="req-item-top">
-          <p class="vac-date-range">${escHtml(req.personName)} ${catTag}</p>
+          <p class="vac-date-range">${escHtml(req.personName)} ${catTag}${leaveTypeTagHtml(req.leaveType)}</p>
           ${submittedBadge}
         </div>
         <p class="req-field"><span class="req-field-label">Date Requested</span><span class="req-field-value">${dateRequestedLine}</span></p>
@@ -1369,11 +1470,11 @@
     const pillLbl = { pending: 'Pending', approved: 'Approved', denied: 'Denied' };
     el.innerHTML = `<div class="scal-wrap"><div class="scal-title">My Requests</div><div class="vacation-list">${myRequests.map(r => `
       <div class="vac-item">
-        <div class="vac-icon${r.halfDay ? ' vac-icon-half' : (r.status==='pending'?' vac-icon-active':'')}">
+        <div class="vac-icon ${r.leaveType === 'sick' ? 'vac-icon-sick' : 'vac-icon-vacation'}">
           <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
         </div>
         <div class="vac-dates">
-          <p class="vac-date-range">${r.halfDay ? escHtml(fmtDate(r.startDate)) : escHtml(fmtRange(r.startDate, r.endDate))}${r.halfDay ? ' <span class="hd-tag">Half Day</span>' : ''}</p>
+          <p class="vac-date-range">${r.halfDay ? escHtml(fmtDate(r.startDate)) : escHtml(fmtRange(r.startDate, r.endDate))}${leaveTypeTagHtml(r.leaveType)}${r.halfDay ? ' <span class="hd-tag">Half Day</span>' : ''}</p>
           ${r.halfDay ? `<p class="vac-note">Off from ${fmtTime(r.halfDayFrom)}</p>` : ''}
           ${r.note ? `<p class="vac-note">${escHtml(r.note)}</p>` : ''}
           ${r.status==='denied' && r.denialReason ? `<p class="vac-note" style="color:#b3261e">Reason: ${escHtml(r.denialReason)}</p>` : ''}
@@ -1384,11 +1485,23 @@
       </div>`).join('')}</div></div>`;
   }
 
+  // One pill's markup — used twice in renderCard below, once per leave type.
+  function yearPillHtml(totals, cls, label) {
+    const durStr = fmtDur({ weeks: totals.weeks, remDays: totals.remDays, totalDays: totals.totalDays });
+    return `
+          <div class="year-pill ${cls}">
+            <div class="pill-top">${totals.totalDays>0?escHtml(durStr):'—'}</div>
+            ${totals.totalDays>0?`<div class="pill-sub">${totals.totalDays} day${totals.totalDays!==1?'s':''}</div>`:''}
+            <div class="pill-bot">${THIS_YEAR} ${label}</div>
+          </div>`;
+  }
+
   function renderCard(person) {
-    const totals     = yearTotals(person, THIS_YEAR);
+    const totals     = yearTotals(person, THIS_YEAR); // combined — footer rollup only
+    const vacTotals   = yearTotals(person, THIS_YEAR, 'vacation');
+    const sickTotals  = yearTotals(person, THIS_YEAR, 'sick');
     const isCollapsed = !!collapseState[person.id];
     const onVacNow   = person.vacations.some(v => isActiveToday(v.startDate, v.endDate));
-    const durStr     = fmtDur({ weeks: totals.weeks, remDays: totals.remDays, totalDays: totals.totalDays });
     const allDays    = dedupedDayCount(person.vacations);
     const cardType   = activeTab === 'instructors' ? 'card-inst' : 'card-emp';
     const addBtnCls  = activeTab === 'instructors' ? 'btn-navy'  : 'btn-primary';
@@ -1400,14 +1513,14 @@
       : vacsSorted.map(v => {
           const dur    = calcDuration(v.startDate, v.endDate, v.worksSaturday, v.halfDay);
           const active = isActiveToday(v.startDate, v.endDate);
-          const iconCls = v.halfDay ? 'vac-icon-half' : (active ? 'vac-icon-active' : '');
+          const iconCls = v.leaveType === 'sick' ? 'vac-icon-sick' : 'vac-icon-vacation';
           return `
           <div class="vac-item" data-vac-id="${v.id}">
-            <div class="vac-icon${iconCls ? ' ' + iconCls : ''}">
+            <div class="vac-icon ${iconCls}">
               <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
             </div>
             <div class="vac-dates">
-              <p class="vac-date-range">${v.halfDay ? escHtml(fmtDate(v.startDate)) : escHtml(fmtRange(v.startDate, v.endDate))}${v.halfDay ? ' <span class="hd-tag">Half Day</span>' : ''}</p>
+              <p class="vac-date-range">${v.halfDay ? escHtml(fmtDate(v.startDate)) : escHtml(fmtRange(v.startDate, v.endDate))}${leaveTypeTagHtml(v.leaveType)}${v.halfDay ? ' <span class="hd-tag">Half Day</span>' : ''}</p>
               ${v.halfDay ? `<p class="vac-note">Off from ${fmtTime(v.halfDayFrom)}</p>` : ''}
               ${v.note ? `<p class="vac-note">${escHtml(v.note)}</p>` : ''}
             </div>
@@ -1430,15 +1543,14 @@
           ${onVacNow ? `<div class="on-vacation-dot"></div>` : ''}
         </div>
         <div class="card-info">
-          <p class="card-name">${escHtml(person.name)}${editable ? ` <button class="btn btn-xs btn-ghost" data-action="edit-person" title="Edit name / sign-in email" style="margin-left:6px;vertical-align:2px">✎</button>` : ''}</p>
+          <p class="card-name">${escHtml(person.name)}${editable ? ` <button class="btn btn-xs btn-ghost" data-action="edit-person" title="Edit name / sign-in email" style="margin-left:6px;vertical-align:2px">✎</button><button class="btn btn-xs btn-ghost" data-action="delete-person" title="Delete this staff member completely" style="margin-left:2px;vertical-align:2px;color:#b3261e">🗑</button>` : ''}</p>
           <p class="card-meta">${totals.count} entr${totals.count===1?'y':'ies'} in ${THIS_YEAR} · ${person.vacations.length} total</p>
         </div>
         ${renderCountdownBadge(person)}
         <div class="year-summary">
-          <div class="year-pill">
-            <div class="pill-top">${totals.totalDays>0?escHtml(durStr):'—'}</div>
-            ${totals.totalDays>0?`<div class="pill-sub">${totals.totalDays} day${totals.totalDays!==1?'s':''}</div>`:''}
-            <div class="pill-bot">${THIS_YEAR} off time</div>
+          <div class="year-pills">
+            ${yearPillHtml(vacTotals, 'year-pill-vacation', 'Vacation/Holiday Leave')}
+            ${yearPillHtml(sickTotals, 'year-pill-sick', 'Sick/Medical Leave')}
           </div>
           <svg class="chevron" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
         </div>
@@ -1449,7 +1561,7 @@
         <div class="vacation-list">${vacsHtml}</div>
         <div class="card-footer">
           <span class="card-footer-stats">
-            ${THIS_YEAR}: <strong>${totals.totalDays} days / ${totals.hours} hrs</strong>
+            ${THIS_YEAR} combined: <strong>${totals.totalDays} days / ${totals.hours} hrs</strong>
             ${allDays!==totals.totalDays?`&nbsp;·&nbsp; All-time: <strong>${allDays} days / ${allDays*8} hrs</strong>`:''}
           </span>
           ${editable ? `<button class="btn btn-sm ${addBtnCls}" data-action="add-vac-for" data-name="${escHtml(person.name)}">
@@ -1543,6 +1655,11 @@
       openPersonModal(personId);
       return;
     }
+    if (action === 'delete-person') {
+      e.stopPropagation();
+      deletePerson(personId, activeTab, person);
+      return;
+    }
     if (action === 'del-vac') {
       e.stopPropagation();
       const vacEl = e.target.closest('.vac-item');
@@ -1604,6 +1721,8 @@
   const rDays     = document.getElementById('rDays');
   const rCatInst  = document.getElementById('rCatInst');
   const rCatEmp   = document.getElementById('rCatEmp');
+  const rLeaveVacation = document.getElementById('rLeaveVacation');
+  const rLeaveSick     = document.getElementById('rLeaveSick');
   const fEndWrap  = document.getElementById('fEndDateWrap');
   const fWksWrap  = document.getElementById('fWeeksWrap');
   const fDaysWrap = document.getElementById('fDaysWrap');
@@ -1617,6 +1736,7 @@
     fName.value  = prefill || '';
     fStart.value = ''; fEnd.value = ''; fWeeks.value = ''; fDays.value = ''; fNote.value = ''; fWorksSat.checked = false; fHalfDayFrom.value = '';
     rEndDate.checked = true;
+    rLeaveVacation.checked = true; rLeaveSick.checked = false;
     fEndWrap.classList.remove('field-hidden'); fWksWrap.classList.add('field-hidden'); fDaysWrap.classList.add('field-hidden'); fHalfDayWrap.classList.add('field-hidden');
     const cat = catOverride || activeTab;
     rCatInst.checked = cat === 'instructors';
@@ -1641,7 +1761,7 @@
   document.getElementById('openRequestModal').addEventListener('click', () => openModal('', null, true));
   document.getElementById('closeModal').addEventListener('click', closeModal);
   overlay.addEventListener('click', e => { if (e.target===overlay) closeModal(); });
-  document.addEventListener('keydown', e => { if (e.key==='Escape') { closeModal(); closePersonModal(); closeDenyModal(); } });
+  document.addEventListener('keydown', e => { if (e.key==='Escape') { closeModal(); closePersonModal(); closeAddStaffModal(); closeDenyModal(); } });
 
   [rEndDate, rWeeks, rDays, rHalfDay].forEach(r => r.addEventListener('change', () => {
     fEndWrap.classList.toggle('field-hidden',  !rEndDate.checked);
@@ -1658,6 +1778,7 @@
     const note = fNote.value.trim();
     const worksSaturday = fWorksSat.checked;
     const halfDay = rHalfDay.checked;
+    const leaveType = rLeaveSick.checked ? 'sick' : 'vacation';
     let endDate, halfDayFrom = '';
 
     if (!startDate) { showErr('Please select a start date.'); fStart.focus(); return null; }
@@ -1687,7 +1808,7 @@
         : 'Duration must be at least 1 day.');
       return null;
     }
-    return { startDate, endDate, note, worksSaturday, halfDay, halfDayFrom, dur };
+    return { startDate, endDate, note, worksSaturday, halfDay, halfDayFrom, leaveType, dur };
   }
 
   document.getElementById('saveVacation').addEventListener('click', async () => {
@@ -1700,12 +1821,13 @@
         const resp = await fetch('/api/requests/submit', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ startDate: r.startDate, endDate: r.endDate, note: r.note, worksSaturday: r.worksSaturday, halfDay: r.halfDay, halfDayFrom: r.halfDayFrom })
+          body: JSON.stringify({ startDate: r.startDate, endDate: r.endDate, note: r.note, worksSaturday: r.worksSaturday, halfDay: r.halfDay, halfDayFrom: r.halfDayFrom, leaveType: r.leaveType })
         });
         const j = await resp.json().catch(() => ({}));
         if (!resp.ok) { showErr(j.error || 'Failed to submit request.'); return; }
         closeModal();
-        showToast(`Request submitted: ${r.halfDay ? 'Half day' : fmtDur(r.dur)} off.`);
+        const typeLbl = r.leaveType === 'sick' ? 'Sick/Medical' : 'Vacation';
+        showToast(`${typeLbl} request submitted: ${r.halfDay ? 'Half day' : fmtDur(r.dur)} off.`);
         loadMyRequests();
       } catch { showErr('Failed to submit request. Please try again.'); }
       return;
@@ -1735,7 +1857,7 @@
     await saveData(fresh => {
       let person = fresh[targetKey].find(p => p.name.toLowerCase() === name.toLowerCase());
       if (!person) { person = { id: uid(), name, email: '', vacations: [] }; fresh[targetKey].push(person); }
-      person.vacations.push({ id: uid(), startDate: r.startDate, endDate: r.endDate, note: r.note, worksSaturday: r.worksSaturday, halfDay: r.halfDay, halfDayFrom: r.halfDayFrom, createdAt: Date.now() });
+      person.vacations.push({ id: uid(), leaveType: r.leaveType, startDate: r.startDate, endDate: r.endDate, note: r.note, worksSaturday: r.worksSaturday, halfDay: r.halfDay, halfDayFrom: r.halfDayFrom, createdAt: Date.now() });
       flashId = person.id;
     });
     pendingFlashId = flashId;
@@ -1743,7 +1865,8 @@
 
     // Switch to the saved tab so user can see the result
     if (targetKey !== activeTab) switchTab(targetKey); else render();
-    showToast(`Saved: ${r.halfDay ? 'Half day' : fmtDur(r.dur)} off for ${name}.`);
+    const typeLbl = r.leaveType === 'sick' ? 'Sick/Medical' : 'Vacation';
+    showToast(`Saved: ${typeLbl} — ${r.halfDay ? 'Half day' : fmtDur(r.dur)} off for ${name}.`);
   });
 
   function showErr(msg) { formError.textContent = msg; formError.classList.add('show'); }
@@ -1791,6 +1914,114 @@
     closePersonModal();
     render();
     showToast(found ? `Updated ${name}.` : 'That person no longer exists.');
+  });
+
+  // ── Delete Staff Member (admin) ─────────────────────────
+  // Unlike deleting a vacation (which only removes the person as a side
+  // effect once their last entry is gone), this is a direct, explicit delete
+  // — so it always confirms first and spells out exactly what's being lost.
+  async function deletePerson(personId, category, person) {
+    const totals = yearTotals(person, THIS_YEAR);
+    const vacCount = person.vacations.length;
+    const warn = `Delete ${person.name} completely?\n\n` +
+      `This permanently removes their profile, all ${vacCount} vacation ${vacCount === 1 ? 'entry' : 'entries'}` +
+      (totals.totalDays > 0 ? ` (${totals.totalDays} day${totals.totalDays === 1 ? '' : 's'} logged in ${THIS_YEAR})` : '') +
+      `, and their request history.\n\nThis cannot be undone.`;
+    if (!confirm(warn)) return;
+    try {
+      const resp = await fetch('/api/staff/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ personId, category })
+      });
+      const j = await resp.json().catch(() => ({}));
+      if (!resp.ok) { showToast(j.error || 'Failed to delete staff member.'); return; }
+      data[category] = (data[category] || []).filter(p => p.id !== personId);
+      delete collapseState[personId];
+      saveToLocalStorage();
+      render();
+      loadAdminRequests();
+      showToast(`Deleted ${person.name}.`);
+    } catch { showToast('Failed to delete staff member. Please try again.'); }
+  }
+
+  // ── Add Staff Member Modal (admin) ──────────────────────
+  // Closes the gap where a person only ever showed up once someone logged a
+  // vacation for them — this adds a profile straight away, with 0 days off,
+  // by email alone. The name is resolved via Graph on the server; if that
+  // can't confirm the account, the endpoint comes back asking for a manual
+  // name and this re-submits with it rather than blocking the add outright.
+  const addStaffOverlay    = document.getElementById('addStaffModalOverlay');
+  const asCatInst          = document.getElementById('asCatInst');
+  const asCatEmp           = document.getElementById('asCatEmp');
+  const asEmail            = document.getElementById('asEmail');
+  const asNameWrap         = document.getElementById('asNameWrap');
+  const asName             = document.getElementById('asName');
+  const addStaffFormError  = document.getElementById('addStaffFormError');
+  const saveAddStaffBtn    = document.getElementById('saveAddStaff');
+  let addStaffNeedsName = false;
+
+  function openAddStaffModal() {
+    asCatInst.checked = activeTab === 'instructors';
+    asCatEmp.checked  = activeTab === 'employees';
+    asEmail.value = '';
+    asName.value = '';
+    asNameWrap.classList.add('field-hidden');
+    addStaffNeedsName = false;
+    addStaffFormError.classList.remove('show');
+    addStaffOverlay.classList.add('open');
+    setTimeout(() => asEmail.focus(), 50);
+  }
+  function closeAddStaffModal() { addStaffOverlay.classList.remove('open'); }
+  document.getElementById('openAddStaffModal').addEventListener('click', openAddStaffModal);
+  document.getElementById('closeAddStaffModal').addEventListener('click', closeAddStaffModal);
+  addStaffOverlay.addEventListener('click', e => { if (e.target === addStaffOverlay) closeAddStaffModal(); });
+
+  saveAddStaffBtn.addEventListener('click', async () => {
+    addStaffFormError.classList.remove('show');
+    const email = asEmail.value.trim().toLowerCase();
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      addStaffFormError.textContent = 'Please enter a valid email address.';
+      addStaffFormError.classList.add('show'); asEmail.focus(); return;
+    }
+    if (addStaffNeedsName && !asName.value.trim()) {
+      addStaffFormError.textContent = 'Please enter a name.';
+      addStaffFormError.classList.add('show'); asName.focus(); return;
+    }
+    const category = asCatInst.checked ? 'instructors' : 'employees';
+    saveAddStaffBtn.disabled = true;
+    try {
+      const resp = await fetch('/api/staff/add', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, category, name: addStaffNeedsName ? asName.value.trim() : undefined })
+      });
+      const j = await resp.json().catch(() => ({}));
+      if (!resp.ok) {
+        if (j.error === 'not_found' || j.error === 'lookup_failed') {
+          addStaffNeedsName = true;
+          asNameWrap.classList.remove('field-hidden');
+          addStaffFormError.textContent = j.message || 'Could not look up that email — enter their name manually.';
+          addStaffFormError.classList.add('show');
+          setTimeout(() => asName.focus(), 50);
+        } else {
+          addStaffFormError.textContent = j.message || 'Failed to add staff member.';
+          addStaffFormError.classList.add('show');
+        }
+        return;
+      }
+      closeAddStaffModal();
+      data[category] = data[category] || [];
+      data[category].push(j.person);
+      saveToLocalStorage();
+      if (category !== activeTab) switchTab(category); else render();
+      showToast(`Added ${j.person.name}.`);
+    } catch {
+      addStaffFormError.textContent = 'Failed to add staff member. Please try again.';
+      addStaffFormError.classList.add('show');
+    } finally {
+      saveAddStaffBtn.disabled = false;
+    }
   });
 
   // ── Deny Request Modal (admin) ──────────────────────────
