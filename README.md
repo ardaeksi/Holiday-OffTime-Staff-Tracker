@@ -9,12 +9,15 @@ A single-page web application for tracking instructor and office employee vacati
 
 - **Microsoft sign-in** — staff sign in with their existing Microsoft/Entra ID account; no shared password
 - **Two roles** — Admins manage everyone's time off; Staff see and manage only their own
-- **Time-off requests** — staff submit a request (same End Date / Weeks / Days entry as admins use); admins approve (becomes an official vacation entry) or deny with a reason, which the staff member then sees
+- **Time-off requests** — staff submit a request (same End Date / Weeks / Days entry as admins use) as either **Vacation/Holiday** or **Sick/Medical**; admins approve (becomes an official vacation entry of that same type) or deny with a reason, which the staff member then sees
+- **Vacation vs. Sick/Medical leave types** — every entry and request is one or the other, color-coded throughout the app (🟠 orange = Vacation/Holiday, 🟣 purple = Sick/Medical) so which is which is visible at a glance — see [Leave Types](#leave-types-vacation--sick-medical) below
 - **Two staff panels (admin view)** — Instructors and Office Employees tracked separately
+- **Add Staff Member** — admins can add someone straight away by email, before they've ever requested time off; their name is looked up automatically via Microsoft, and they start at 0 days
+- **Delete Staff Member** — admins can permanently remove a person's profile, vacation history, and requests, behind a confirmation that spells out what's being lost
 - **Three ways to enter duration** — end date, number of weeks, or number of days
-- **Mini vacation calendar** — scrollable monthly view with orange vacation highlights per person
-- **Live countdown badges** — shows "Vacation ends in X days" or "Starts in X days" on each card
-- **Year totals** — per-person 2026 off-time summary (days / hours), separate from all-time total
+- **Mini vacation calendar** — scrollable monthly view with orange (Vacation/Holiday) or purple (Sick/Medical) highlights per person
+- **Live countdown badges** — shows "Vacation ends in X days" / "Sick leave ends in X days" (or "Starts in X days") on each card, colored and iconed to match the leave type
+- **Split year totals** — two separate per-person 2026 summaries, "Vacation/Holiday Leave" and "Sick/Medical Leave" (days / hours each), plus a combined all-time total
 - **Page-load notifications** — dismissible alerts for vacations ending within 3 days or ended within 3 days
 - **Name search** — filters across the active panel in real time
 - **Cloud sync** — all users see the same data; changes save to the cloud on every entry
@@ -50,14 +53,27 @@ A single-page web application for tracking instructor and office employee vacati
 │   │   │   ├── list.js         # Admin: list requests (default: pending)
 │   │   │   ├── approve.js      # Admin: request → official vacation entry
 │   │   │   └── deny.js         # Admin: request → denied, with a reason
+│   │   ├── staff/
+│   │   │   ├── add.js          # Admin: add a person by email (0 vacations), name resolved via Graph
+│   │   │   └── delete.js       # Admin: permanently remove a person, their vacations, and their requests
 │   │   └── notify/
 │   │       ├── unsubscribe.js  # One-click, no-login unsubscribe link clicked from the notification email
 │   │       └── preference.js   # GET/POST — admin's own notification on/off toggle, used by the app UI
 │   └── _lib/                   # Shared helpers (session signing, KV storage, Microsoft OAuth calls,
-│                                #   Graph email sending, notification email templates)
-└── backup-worker/               # Standalone Worker — daily KV backups (see "Daily Backups" below)
-    ├── index.js
-    └── wrangler.toml
+│                                #   Graph app-only auth, Graph email sending, Graph user lookup,
+│                                #   notification email templates)
+├── backup-worker/               # Standalone Worker — daily KV backups (see "Daily Backups" below)
+│   ├── index.js
+│   └── wrangler.toml
+├── package.json                 # Exists only to run the backend test suite (`npm test`) — see Testing below;
+│                                #   the app itself has no build step and no runtime dependencies
+└── test/                        # Backend unit/integration tests (Node's built-in test runner) — see Testing below
+    ├── helpers.js               # Shared test scaffolding: in-memory KV, fake sessions, fetch stubbing
+    ├── store.test.js
+    ├── graphUsers.test.js
+    ├── staffAdd.test.js
+    ├── staffDelete.test.js
+    └── leaveType.test.js
 ```
 
 ---
@@ -87,6 +103,39 @@ Cloudflare KV (key-value store)
 - Data is stored as one JSON blob under the key `tracker-data` in a Cloudflare KV namespace, including a `requests` array for time-off requests.
 - Every admin save (add vacation, delete entry, edit a person) immediately POSTs the updated data to the cloud. Staff cannot write to `/api/data` at all — their only write path is submitting a request.
 - On page load, the app renders instantly from the browser's local cache, then fetches the latest from the cloud in the background and re-renders if anything changed.
+
+---
+
+## Adding / Removing Staff
+
+**Adding a staff member by email** — previously the only way to get someone into the tracker was to log a vacation for them first. The **+ Add Staff Member** button (top toolbar, admin view) skips that: pick Instructor or Office Employee, enter their Microsoft sign-in email, and they're added immediately with 0 vacation days — no waiting for their first time-off entry.
+- Their display name is looked up automatically via Microsoft Graph (requires the `User.ReadBasic.All` permission — see Step 5 above). If that lookup can't find or confirm the account (permission not granted yet, or the address isn't in this tenant), you're prompted to type their name instead and the record is still created.
+- If that email is already linked to someone, you'll get an error naming who instead of a duplicate.
+
+**Deleting a staff member** — the 🗑 button next to the ✎ edit button on each person's card permanently removes their profile, every vacation entry, and their request history (pending, approved, or denied). A confirmation dialog spells out exactly what's being deleted before it happens, and it cannot be undone from within the app — restoring someone would mean restoring from a [daily backup](#daily-backups). The deletion itself is recorded in the Activity Log (who removed them and when), same as it always has been for the "delete someone's last vacation entry" path.
+
+---
+
+## Leave Types: Vacation / Sick-Medical
+
+Every vacation entry and every time-off request is one of exactly two **leave types**:
+
+| Leave Type | Color | Used for |
+|---|---|---|
+| **Vacation / Holiday** | 🟠 Orange | Ordinary planned time off — the default, and what every entry was before this distinction existed |
+| **Sick / Medical Leave** | 🟣 Purple | Sick days, medical appointments, anything health-related |
+
+**Where it shows up:**
+- **The Add Vacation modal (admin) and Request Time Off modal (staff)** both have a "Leave Type" picker — Vacation/Holiday is pre-selected, so nothing changes for anyone who doesn't care about the distinction.
+- **Each person's card** shows two separate year-total pills instead of one combined total — **"{year} Vacation/Holiday Leave"** (orange) and **"{year} Sick/Medical Leave"** (purple) — each with its own day/hour count. A combined "{year} combined: X days / Y hrs" line remains at the bottom of the expanded card for the full picture, alongside the existing all-time total.
+- **Every vacation-entry row, request row, and Activity Log deletion entry** carries a small colored tag (Vacation / Sick-Medical) next to the date, plus a matching icon color.
+- **The mini per-person calendar and its legend** highlight sick days in purple and vacation days in orange (a day covered by entries of both types — an edge case — shows purple, since that's the one worth noticing).
+- **Countdown badges/banners** ("Vacation ends in 3 days" vs. "Sick leave ends in 3 days") switch wording, icon (🏖 vs. 🤒), and color to match.
+- **Notification emails** (new request, approval, approval confirmation) include a "Type" field and adjust their subject line for sick/medical requests, e.g. *"Jane requested sick/medical leave!"* instead of the standard *"Jane put a new request on Vacation Tracker!"*.
+
+**What deliberately did *not* change:** the **Team Calendar** (the section-level calendar at the bottom of each panel) still colors each person's chips by *person* (via its own 12-color palette), not by leave type — its job is "who is off, at a glance," and overloading it with a second color axis would work against that. Half Day remains an independent "duration shape" flag (the small "Half Day" text badge, now neutral navy) — you can have a half-day vacation or a half-day sick entry; it no longer forces the purple color the way it used to before this feature existed.
+
+**Data model / migration:** every vacation entry and request has a `leaveType` field (`"vacation"` or `"sick"`). Anything created before this feature — or anything malformed — is treated as `"vacation"` automatically, both when read from storage (`functions/_lib/store.js` → `migrate()` / `normalizeLeaveType()`) and defensively re-checked on every admin save (`functions/api/data.js`), so there's no manual migration step and no way to end up with an invalid value in storage.
 
 ---
 
@@ -131,6 +180,7 @@ Cloudflare KV (key-value store)
 - **Token configuration** → **Add optional claim** → token type **ID** → check **email** → Add
 - Sign-in itself needs no API permission changes — the default `User.Read` is fine
 - To enable [email notifications](#email-notifications-new-request-submitted) (optional but recommended): **API permissions** → **Add a permission** → **Microsoft Graph** → **Application permissions** → search `Mail.Send` → check it → **Add permissions**, then click **Grant admin consent for &lt;org&gt;** (requires a Global/Application Administrator). This is a separate, more powerful permission than the delegated `User.Read` used for sign-in — see the note in that section on scoping it down.
+- To enable name auto-fill when [adding a staff member](#adding-a-staff-member-by-email) by email (optional): same place, search `User.ReadBasic.All` instead → check it → **Add permissions** → **Grant admin consent**. Without this, adding someone by email still works, but the admin has to type their name manually rather than it being looked up.
 
 ### 6. Add environment variables
 
@@ -270,6 +320,24 @@ wrangler pages dev . --kv TRACKER_KV
 ```
 
 Opening the file directly (`index.html` via `file://`) works for UI development but will run in **local mode** — no cloud sync, data stays in the browser only.
+
+---
+
+## Testing
+
+The backend (`functions/`) has an automated test suite using Node's built-in test runner — no test framework dependency, consistent with the app having no build step at all (see "Hosting on Cloudflare" above: build command/output are deliberately left blank). `package.json` exists solely to declare the `npm test` script; nothing in it is needed to deploy or run the app itself.
+
+```bash
+npm test
+```
+
+Requires Node 18+ (anything with `node:test` built in). This runs every `*.test.js` file under `test/` — 29 tests as of this writing, covering:
+- **`functions/_lib/store.js`** — data migration/defaults (including the leave-type backfill described above), person lookups, admin/notify-opt-out logic
+- **`functions/_lib/graphUsers.js`** — the Microsoft Graph user-lookup call backing "Add Staff Member," with `global.fetch` stubbed so tests never touch the real network
+- **`functions/api/staff/add.js`** and **`staff/delete.js`** — validation, duplicate detection, the Graph-lookup-fails-so-ask-for-a-name fallback, and that deletion cleans up a person's requests and writes the right audit entry
+- **The leave-type feature end-to-end** (`test/leaveType.test.js`) — a staff request's `leaveType` survives submission, defaults correctly when omitted, carries onto the resulting vacation entry on approval (including the first-time-requester path that creates the person record), and that the admin full-roster save both normalizes a bogus `leaveType` and records it correctly on a vacation-deletion audit entry
+
+**What's intentionally *not* covered:** `index.html`'s frontend logic (rendering, the two split year-pills, calendar coloring, the modal). It's a single inline `<script>` with no module system by design — see "Local Development" above and the "no build step" note in Hosting — so unit-testing it would mean introducing a bundler/JSDOM purely for tests, which is a bigger architectural change than this feature warranted. The backend tests above verify the *data* is always correct (right `leaveType`, right defaults, right propagation); verifying the *pixels* (correct color swatch, pill layout, modal wiring) is a manual QA pass — reload the app, add a sick entry and a vacation entry for the same person, and confirm: the two year-pills on their card, the mini-calendar colors + legend, the countdown badge/banner wording and icon, and the colored tags in the Requests dropdown / Activity Log all agree with each other.
 
 ---
 

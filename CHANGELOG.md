@@ -6,6 +6,39 @@ This log follows [Keep a Changelog](https://keepachangelog.com/) style. Version 
 
 ---
 
+## [2.9.0] - 2026-09-14
+
+### Added
+- **Leave Types: Vacation/Holiday vs. Sick/Medical.** Every vacation entry and time-off request is now one of two types, color-coded everywhere (🟠 orange = Vacation/Holiday, 🟣 purple = Sick/Medical):
+  - "Leave Type" picker in the shared Add Vacation (admin) / Request Time Off (staff) modal, defaulting to Vacation/Holiday
+  - Each person's card now shows **two** year-total pills — "{year} Vacation/Holiday Leave" and "{year} Sick/Medical Leave" — instead of one combined pill; a combined line remains lower in the card for the full-picture total
+  - Colored tags + matching icon colors on every vacation-entry row, request row (admin dropdown and Log), and vacation-deletion Activity Log entry
+  - Mini per-person calendar (and its legend) highlights sick days in purple, vacation days in orange
+  - Countdown badges/banners switch wording ("Vacation ends…" vs. "Sick leave ends…"), icon (🏖 vs. 🤒), and color to match the entry's type
+  - Notification emails gain a "Type" field and a distinct subject line for sick/medical requests
+  - See the new **Leave Types** section in the README for the full rundown, including what was deliberately left unchanged (the Team Calendar still colors by person, not by type)
+- `functions/_lib/store.js`: `normalizeLeaveType()` — the single source of truth for "what counts as a valid leaveType," used by every endpoint that reads or writes one; `migrate()` now backfills `leaveType` on both vacations and requests
+- **Automated backend test suite** (`npm test`, Node's built-in test runner, zero new dependencies) — 29 tests across `test/*.test.js` covering the leave-type feature end-to-end (submit → approve propagation, migration/defaults, defensive normalization on admin save) plus the staff add/delete endpoints from 2.8.0, which shipped without tests. See the new **Testing** section in the README for what is and isn't covered (frontend rendering is manual-QA only — see that section for why)
+
+### Changed
+- `.hd-tag` ("Half Day" badge) recolored from purple to neutral navy — purple is now reserved for the Sick/Medical leave type, and Half Day is an orthogonal "duration shape" that applies to either type (a half-day entry can be Vacation or Sick)
+- Per-entry icon coloring (`.vac-icon`) is now driven by leave type instead of half-day/currently-active status; "currently on vacation" is still visible via the existing "● On Vacation Now" tag, just no longer via a third icon-color state
+- `functions/api/requests/submit.js` and `approve.js` accept/propagate `leaveType`; `functions/api/data.js` defensively normalizes `leaveType` on every admin save and records it on `vacation-deleted` audit entries
+
+### Migration notes
+- No manual step needed — every vacation entry and request created before this version has no `leaveType` field, and is treated as `"vacation"` automatically wherever data is read (`migrate()`) or saved (`functions/api/data.js`), matching what it always implicitly was
+
+## [2.8.0] - 2026-09-14
+
+### Added
+- **Add Staff Member** — admins can now add a person straight away by email alone, with 0 vacation entries, instead of only being able to create a profile by logging their first vacation. `functions/api/staff/add.js` resolves their display name via Microsoft Graph (`User.ReadBasic.All`, app-only); if the email can't be matched in the tenant directory, the admin is prompted to enter the name manually and the record is created anyway. New "+ Add Staff Member" button and modal next to "Add Vacation / Off Time"
+- **Delete Staff Member** — a 🗑 button next to the existing ✎ on every card, behind a confirmation that spells out exactly what's being lost (vacation entry count, this year's days, request history). `functions/api/staff/delete.js` removes the person, drops any of their requests (pending/approved/denied), and logs the deletion to the existing Activity Log — same audit entry shape the old "delete their last vacation" path already produced, so no changes needed there
+- `functions/_lib/graphUsers.js` — `lookupUserByEmail()`, the Graph call backing the name auto-fill above
+- `functions/_lib/graphAuth.js` — app-only Graph token acquisition factored out of `graphMail.js` so both it and `graphUsers.js` share the same cached-token logic instead of duplicating it
+
+### Changed
+- README: new setup step for the `User.ReadBasic.All` Graph Application permission (admin consent required), needed only for the name auto-fill above — everything else in the app works unchanged without it (the manual-name fallback covers it)
+
 ## [2.7.0] - 2026-07-20
 
 ### Added
