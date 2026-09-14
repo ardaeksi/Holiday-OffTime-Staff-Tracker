@@ -1,5 +1,5 @@
 import { json } from '../../_lib/http.js';
-import { readStore, writeStore, findPersonById, getNotifyAdminEmails } from '../../_lib/store.js';
+import { readStore, writeStore, findPersonById, getNotifyAdminEmails, normalizeLeaveType } from '../../_lib/store.js';
 import { sendMail } from '../../_lib/graphMail.js';
 import { approvedRequestEmail, staffApprovedEmail, buildUnsubscribeUrl } from '../../_lib/emailTemplates.js';
 
@@ -45,6 +45,7 @@ export async function onRequestPost({ request, env, data, waitUntil }) {
 
   const vacation = {
     id: uid(),
+    leaveType: normalizeLeaveType(req.leaveType),
     startDate: req.startDate,
     endDate: req.endDate,
     note: req.note,
