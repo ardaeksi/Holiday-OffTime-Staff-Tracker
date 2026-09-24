@@ -1258,19 +1258,24 @@
     updateStats();
   }
 
-  // Deletion entries in the Activity Log — a person or vacation an admin removed.
+  // Addition/deletion entries in the Activity Log — a person or vacation an admin added or removed.
+  function auditTimestamp(a) { return a.deletedAt || a.addedAt || 0; }
+  const IS_ADD_AUDIT = { 'person-added': true, 'vacation-added': true };
   function renderAuditItem(a) {
+    const isAdd = !!IS_ADD_AUDIT[a.type];
     const catTag = `<span class="cat-tag cat-tag-${a.category}">${a.category === 'instructors' ? 'Instructor' : 'Office Employee'}</span>`;
-    const who  = a.deletedByEmail ? escHtml(a.deletedByEmail) : 'unknown';
-    const when = a.deletedAt ? fmtDate(new Date(a.deletedAt).toISOString().slice(0, 10)) : '';
-    const line = a.type === 'person-deleted'
-      ? `Removed from tracker (${a.vacationCount} vacation${a.vacationCount === 1 ? '' : 's'} with them)`
+    const who  = (isAdd ? a.addedByEmail : a.deletedByEmail) ? escHtml(isAdd ? a.addedByEmail : a.deletedByEmail) : 'unknown';
+    const ts   = auditTimestamp(a);
+    const when = ts ? fmtDate(new Date(ts).toISOString().slice(0, 10)) : '';
+    const isPerson = a.type === 'person-added' || a.type === 'person-deleted';
+    const line = isPerson
+      ? `${isAdd ? 'Added to tracker' : 'Removed from tracker'} (${a.vacationCount} vacation${a.vacationCount === 1 ? '' : 's'} with them)`
       : a.halfDay
-        ? `Half day deleted: ${escHtml(fmtDate(a.startDate))}`
-        : `Vacation deleted: ${escHtml(fmtRange(a.startDate, a.endDate))}`;
-    // Only a vacation-entry deletion has a leaveType to show — a whole-person
-    // deletion spans both types, so no single tag would be meaningful there.
-    const leaveTag = a.type === 'vacation-deleted' ? leaveTypeTagHtml(a.leaveType) : '';
+        ? `Half day ${isAdd ? 'added' : 'deleted'}: ${escHtml(fmtDate(a.startDate))}`
+        : `Vacation ${isAdd ? 'added' : 'deleted'}: ${escHtml(fmtRange(a.startDate, a.endDate))}`;
+    // Only a vacation-entry event has a leaveType to show — a whole-person
+    // event spans both types, so no single tag would be meaningful there.
+    const leaveTag = !isPerson ? leaveTypeTagHtml(a.leaveType) : '';
 
     return `
     <div class="vac-item">
@@ -1279,7 +1284,7 @@
         <p class="vac-note">${line}</p>
         <p class="vac-note">by ${who}${when ? ' on ' + when : ''}</p>
       </div>
-      <span class="vac-active-tag req-denied" style="flex-shrink:0">Deleted</span>
+      <span class="vac-active-tag ${isAdd ? 'req-approved' : 'req-denied'}" style="flex-shrink:0">${isAdd ? 'Added' : 'Deleted'}</span>
     </div>`;
   }
 
@@ -1396,9 +1401,9 @@
     const el = document.getElementById('logList');
     const decided   = adminRequests.filter(r => r.status !== 'pending')
       .map(r => ({ ts: r.decidedAt || r.createdAt, html: renderRequestItem(r) }));
-    const deletions = auditLog
-      .map(a => ({ ts: a.deletedAt, html: renderAuditItem(a) }));
-    const combined  = [...decided, ...deletions].sort((a, b) => b.ts - a.ts);
+    const auditItems = auditLog
+      .map(a => ({ ts: auditTimestamp(a), html: renderAuditItem(a) }));
+    const combined  = [...decided, ...auditItems].sort((a, b) => b.ts - a.ts);
 
     el.innerHTML = combined.length
       ? combined.map(entry => entry.html).join('')
