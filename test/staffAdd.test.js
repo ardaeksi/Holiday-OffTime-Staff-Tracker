@@ -53,6 +53,45 @@ test('staff/add: creates a person with 0 vacations, name resolved via Graph', as
   assert.equal(stored.instructors[0].name, 'Jane Smith');
 });
 
+test('staff/add: logs a person-added audit entry with who/what/when', async () => {
+  const env = makeEnv();
+  let personId;
+  await withFetch([TOKEN_HANDLER, graphFound('Jane Smith')], async () => {
+    const resp = await onRequestPost({
+      request: jsonRequest(URL, { email: 'jane@canadianallcare.com', category: 'instructors' }),
+      env, data: adminSession('boss@canadianallcare.com')
+    });
+    personId = (await resp.json()).person.id;
+  });
+
+  const stored = env.TRACKER_KV._dump();
+  assert.equal(stored.auditLog.length, 1);
+  const entry = stored.auditLog[0];
+  assert.equal(entry.type, 'person-added');
+  assert.equal(entry.category, 'instructors');
+  assert.equal(entry.personId, personId);
+  assert.equal(entry.personName, 'Jane Smith');
+  assert.equal(entry.addedByEmail, 'boss@canadianallcare.com');
+  assert.equal(typeof entry.addedAt, 'number');
+});
+
+test('staff/add: a rejected add (bad input, duplicate, or failed lookup) never writes an audit entry', async () => {
+  const env = makeEnv({
+    seed: {
+      instructors: [{ id: 'p1', name: 'Existing', email: 'dup@x.com', vacations: [] }],
+      employees: [], requests: [], auditLog: [], notifyOptOuts: []
+    }
+  });
+
+  await onRequestPost({ request: jsonRequest(URL, { email: 'not-an-email', category: 'instructors' }), env, data: adminSession() });
+  await onRequestPost({ request: jsonRequest(URL, { email: 'dup@x.com', category: 'employees' }), env, data: adminSession() });
+  await withFetch([TOKEN_HANDLER, graphNotFound()], () =>
+    onRequestPost({ request: jsonRequest(URL, { email: 'ghost@elsewhere.com', category: 'employees' }), env, data: adminSession() })
+  );
+
+  assert.equal(env.TRACKER_KV._dump().auditLog.length, 0);
+});
+
 test('staff/add: 404 from Graph asks for a manual name instead of failing outright', async () => {
   const env = makeEnv();
   await withFetch([TOKEN_HANDLER, graphNotFound()], async () => {
