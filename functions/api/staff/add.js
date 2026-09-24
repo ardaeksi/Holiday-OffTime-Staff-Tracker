@@ -71,6 +71,16 @@ export async function onRequestPost({ request, env, data }) {
   const person = { id: uid(), name, email, vacations: [] };
   store[category].push(person);
 
+  store.auditLog.push({
+    id: uid(),
+    type: 'person-added',
+    category,
+    personId: person.id,
+    personName: person.name,
+    addedByEmail: session.email,
+    addedAt: Date.now()
+  });
+
   try {
     await writeStore(env, store);
   } catch {

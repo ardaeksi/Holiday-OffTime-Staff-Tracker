@@ -65,14 +65,21 @@ export async function onRequestPost({ request, env, data }) {
     );
     const requests = existing.requests.filter(r => r.status !== 'approved' || survivingIds.has(r.id));
 
-    // Audit trail: anything present in the stored state but missing from this
-    // save is something an admin just deleted — log who/what/when, so admins
-    // reviewing each other's changes can see what disappeared and by whom.
+    // Audit trail: anything present in this save but missing from the stored
+    // state is something an admin just added, and vice versa for something
+    // that disappeared — log who/what/when, so admins reviewing each other's
+    // changes can see what changed and by whom. This is the only record of a
+    // person or vacation added directly through the calendar (rather than via
+    // /api/staff/add or an approved request), so it has to run here too.
     const auditLog = existing.auditLog.slice();
     const now = Date.now();
     ['instructors', 'employees'].forEach(category => {
-      const newById = new Map((body[category] || []).map(p => [p.id, p]));
-      (existing[category] || []).forEach(oldPerson => {
+      const oldList = existing[category] || [];
+      const newList = body[category] || [];
+      const oldById = new Map(oldList.map(p => [p.id, p]));
+      const newById = new Map(newList.map(p => [p.id, p]));
+
+      oldList.forEach(oldPerson => {
         const newPerson = newById.get(oldPerson.id);
         if (!newPerson) {
           auditLog.push({
@@ -87,6 +94,7 @@ export async function onRequestPost({ request, env, data }) {
           });
           return;
         }
+        const oldVacIds = new Set(oldPerson.vacations.map(v => v.id));
         const newVacIds = new Set(newPerson.vacations.map(v => v.id));
         oldPerson.vacations.forEach(oldVac => {
           if (!newVacIds.has(oldVac.id)) {
@@ -105,6 +113,42 @@ export async function onRequestPost({ request, env, data }) {
             });
           }
         });
+        // Only diffed for a person who already existed — a vacation that
+        // arrives bundled with a brand-new person is covered by that
+        // person's own vacationCount below, mirroring how person-deleted
+        // doesn't also emit a vacation-deleted per vacation they took with them.
+        newPerson.vacations.forEach(newVac => {
+          if (!oldVacIds.has(newVac.id)) {
+            auditLog.push({
+              id: uid(),
+              type: 'vacation-added',
+              category,
+              personId: newPerson.id,
+              personName: newPerson.name,
+              leaveType: normalizeLeaveType(newVac.leaveType),
+              startDate: newVac.startDate,
+              endDate: newVac.endDate,
+              halfDay: !!newVac.halfDay,
+              addedByEmail: session.email,
+              addedAt: now
+            });
+          }
+        });
+      });
+
+      newList.forEach(newPerson => {
+        if (!oldById.has(newPerson.id)) {
+          auditLog.push({
+            id: uid(),
+            type: 'person-added',
+            category,
+            personId: newPerson.id,
+            personName: newPerson.name,
+            vacationCount: newPerson.vacations.length,
+            addedByEmail: session.email,
+            addedAt: now
+          });
+        }
       });
     });
 

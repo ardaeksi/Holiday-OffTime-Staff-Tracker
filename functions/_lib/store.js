@@ -92,6 +92,14 @@ export function removeNotifyOptOut(store, email) {
   store.notifyOptOuts = store.notifyOptOuts.filter(e => e.toLowerCase() !== lower);
 }
 
+// Audit entries record "when" under a verb-specific field (deletedAt,
+// addedAt, ...) so each reads naturally on its own; this lets callers that
+// need to sort or compare across mixed entry types do so without caring
+// which verb produced a given entry.
+export function auditEntryTimestamp(entry) {
+  return entry.deletedAt ?? entry.addedAt ?? 0;
+}
+
 export function resolveRole(email, env) {
   const admins = getAdminEmails(env).map(e => e.toLowerCase());
   return admins.includes((email || '').toLowerCase()) ? 'admin' : 'staff';

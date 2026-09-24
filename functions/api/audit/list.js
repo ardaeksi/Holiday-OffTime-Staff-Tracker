@@ -1,5 +1,5 @@
 import { json } from '../../_lib/http.js';
-import { readStore } from '../../_lib/store.js';
+import { readStore, auditEntryTimestamp } from '../../_lib/store.js';
 
 export async function onRequestGet({ env, data }) {
   const session = data.session;
@@ -7,6 +7,6 @@ export async function onRequestGet({ env, data }) {
   if (session.role !== 'admin') return json({ error: 'Forbidden' }, 403);
 
   const store = await readStore(env);
-  const entries = store.auditLog.slice().sort((a, b) => b.deletedAt - a.deletedAt);
+  const entries = store.auditLog.slice().sort((a, b) => auditEntryTimestamp(b) - auditEntryTimestamp(a));
   return json({ entries });
 }
