@@ -1,5 +1,5 @@
 import { json } from '../../_lib/http.js';
-import { readStore, writeStore, findPersonById, getNotifyAdminEmails, normalizeLeaveType } from '../../_lib/store.js';
+import { readStore, writeStore, findPersonById, findPersonByEmail, getNotifyAdminEmails, normalizeLeaveType } from '../../_lib/store.js';
 import { sendMail } from '../../_lib/graphMail.js';
 import { approvedRequestEmail, staffApprovedEmail, buildUnsubscribeUrl } from '../../_lib/emailTemplates.js';
 
@@ -30,7 +30,19 @@ export async function onRequestPost({ request, env, data, waitUntil }) {
   if (req.personId) {
     person = findPersonById(store, req.category, req.personId);
     if (!person) return json({ error: 'Staff record no longer exists' }, 404);
+    // Normally unreachable (archiving closes pending requests), but a stale
+    // admin tab could still try — never add time off to an archived record.
+    if (person.archived) {
+      return json({ error: `${person.name} is archived — unarchive them first if this request should still be approved.` }, 409);
+    }
   } else {
+    // Same guard for a first-time request whose email has since been linked
+    // to a record that's now archived — creating a new record here would
+    // split that person's history across two profiles.
+    const existingByEmail = findPersonByEmail(store, req.submittedByEmail);
+    if (existingByEmail && existingByEmail.person.archived) {
+      return json({ error: `${existingByEmail.person.name} is archived — unarchive them first if this request should still be approved.` }, 409);
+    }
     // First-ever request from this person — no record exists yet, so this
     // approval both creates their profile (linked to the email they signed in
     // with) and files their first vacation entry under the chosen category.

@@ -56,6 +56,29 @@ export async function onRequestPost({ request, env, data }) {
     // admin save would silently wipe all pending/decided time-off requests.
     const existing = await readStore(env);
 
+    // Archive state is server-authoritative: it only ever changes through
+    // /api/staff/archive and /api/staff/unarchive, never through this generic
+    // save. So an archived record is kept exactly as stored — even if this save
+    // left it out (an old cached page that predates archiving, or a client that
+    // only round-trips active staff) or sent a modified copy of it — and the
+    // archive fields on active records are taken from storage, not the client.
+    // Without this, a stale tab could silently delete or un-archive an
+    // ex-employee's whole history just by saving something unrelated.
+    const archivedStored = [];
+    ['instructors', 'employees'].forEach(category => {
+      existing[category].forEach(p => { if (p.archived) archivedStored.push({ person: p, category }); });
+    });
+    const archivedIds = new Set(archivedStored.map(a => a.person.id));
+    ['instructors', 'employees'].forEach(category => {
+      body[category] = body[category]
+        .filter(p => !archivedIds.has(p.id))
+        .map(p => {
+          const { archivedAt, archivedByEmail, ...rest } = p;
+          return { ...rest, archived: false };
+        });
+    });
+    archivedStored.forEach(({ person, category }) => body[category].push(person));
+
     // If an approved request's resulting vacation entry was deleted (directly,
     // or by deleting the whole person), drop the request record too — otherwise
     // it keeps showing as "Approved" in the Log even though the time off is gone.
@@ -152,7 +175,10 @@ export async function onRequestPost({ request, env, data }) {
       });
     });
 
-    const merged = { instructors: body.instructors, employees: body.employees, requests, auditLog };
+    // Start from everything already stored and overwrite only what this save
+    // owns — so fields this endpoint doesn't manage (notifyOptOuts, and
+    // anything added in future) are carried over instead of being reset.
+    const merged = { ...existing, instructors: body.instructors, employees: body.employees, requests, auditLog };
     await writeStore(env, merged);
     return json({ ok: true });
   } catch {

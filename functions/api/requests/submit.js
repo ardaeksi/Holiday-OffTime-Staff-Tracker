@@ -59,6 +59,16 @@ export async function onRequestPost({ request, env, data, waitUntil }) {
   // Looked up fresh rather than trusting the session's snapshot — same reason
   // as /api/data and /api/auth/me: a record may have been linked since sign-in.
   const match = findPersonByEmail(store, session.email);
+  // An archived (ex-)staff member can still sign in and see their history,
+  // but can't file new time off. Checked here, server-side, not just by hiding
+  // the button — and must not fall through to the "no record yet" path, or
+  // approving it would create a second, duplicate record for them.
+  if (match && match.person.archived) {
+    return json({
+      error: 'Your staff profile has been archived, so new time-off requests are closed. If this is a mistake, please contact an administrator.',
+      code: 'archived'
+    }, 403);
+  }
   const requestObj = {
     id: uid(),
     category: match ? match.category : null,

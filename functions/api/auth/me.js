@@ -14,7 +14,7 @@ export async function onRequestGet({ env, data }) {
     try {
       const store = await readStore(env);
       const match = findPersonByEmail(store, session.email);
-      if (match) person = { id: match.person.id, name: match.person.name, category: match.category };
+      if (match) person = { id: match.person.id, name: match.person.name, category: match.category, archived: !!match.person.archived };
     } catch { /* leave person null on read failure */ }
   }
 

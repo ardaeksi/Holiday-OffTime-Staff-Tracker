@@ -40,6 +40,18 @@ export async function onRequestPost({ request, env, data }) {
   const store = await readStore(env);
 
   const existing = findPersonByEmail(store, email);
+  if (existing && existing.person.archived) {
+    // A rehire: bring the old record back (history intact) rather than
+    // starting a second profile for the same person.
+    const catLabel = existing.category === 'instructors' ? 'Instructors' : 'Office Employees';
+    return json({
+      error: 'archived',
+      message: `${existing.person.name} is in the Archived list (${catLabel}) with this email. Unarchive them instead so their history stays in one place.`,
+      personId: existing.person.id,
+      category: existing.category,
+      name: existing.person.name
+    }, 409);
+  }
   if (existing) {
     const catLabel = existing.category === 'instructors' ? 'Instructors' : 'Office Employees';
     return json({

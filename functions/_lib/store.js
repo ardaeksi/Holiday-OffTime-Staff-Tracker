@@ -19,6 +19,12 @@ export function migrate(d) {
     if (typeof p.email !== 'string') p.email = '';
     if (!Array.isArray(p.vacations)) p.vacations = [];
     p.vacations.forEach(v => { v.leaveType = normalizeLeaveType(v.leaveType); });
+    // Archiving (ex-staff) is a flag on the record itself, not a move to a
+    // separate list/key — the person, their vacations, and every request and
+    // audit entry pointing at their id stay exactly where they were, so
+    // archive/unarchive can never lose or orphan history. Anything that isn't
+    // literally `true` (including every record older than this feature) is active.
+    p.archived = p.archived === true;
   });
   d.requests.forEach(r => { r.leaveType = normalizeLeaveType(r.leaveType); });
   return d;
@@ -33,12 +39,19 @@ export async function writeStore(env, store) {
   await env.TRACKER_KV.put(KV_KEY, JSON.stringify(store));
 }
 
+// Archived records are still matched (an ex-employee signing in must resolve
+// to their archived record, not look like a brand-new first-time requester),
+// but an active record with the same email always wins over an archived one.
 export function findPersonByEmail(store, email) {
   if (!email) return null;
   const lower = email.toLowerCase();
-  for (const category of ['instructors', 'employees']) {
-    const person = store[category].find(p => p.email && p.email.toLowerCase() === lower);
-    if (person) return { person, category };
+  for (const wantArchived of [false, true]) {
+    for (const category of ['instructors', 'employees']) {
+      const person = store[category].find(p =>
+        p.email && p.email.toLowerCase() === lower && !!p.archived === wantArchived
+      );
+      if (person) return { person, category };
+    }
   }
   return null;
 }
@@ -97,7 +110,7 @@ export function removeNotifyOptOut(store, email) {
 // need to sort or compare across mixed entry types do so without caring
 // which verb produced a given entry.
 export function auditEntryTimestamp(entry) {
-  return entry.deletedAt ?? entry.addedAt ?? 0;
+  return entry.deletedAt ?? entry.addedAt ?? entry.archivedAt ?? entry.unarchivedAt ?? 0;
 }
 
 export function resolveRole(email, env) {
