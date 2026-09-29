@@ -14,6 +14,7 @@ A single-page web application for tracking instructor and office employee vacati
 - **Two staff panels (admin view)** — Instructors and Office Employees tracked separately
 - **Add Staff Member** — admins can add someone straight away by email, before they've ever requested time off; their name is looked up automatically via Microsoft, and they start at 0 days
 - **Delete Staff Member** — admins can permanently remove a person's profile, vacation history, and requests, behind a confirmation that spells out what's being lost
+- **Archive ex-staff** — instructors and office employees who've left can be archived instead of deleted: they disappear from the main panels into a separate **Archived** tab with all of their history kept, can't submit new requests, and can be unarchived at any time — see [Archiving Ex-Staff](#archiving-ex-staff) below
 - **Three ways to enter duration** — end date, number of weeks, or number of days
 - **Mini vacation calendar** — scrollable monthly view with orange (Vacation/Holiday) or purple (Sick/Medical) highlights per person
 - **Live countdown badges** — shows "Vacation ends in X days" / "Sick leave ends in X days" (or "Starts in X days") on each card, colored and iconed to match the leave type
@@ -55,6 +56,8 @@ A single-page web application for tracking instructor and office employee vacati
 │   │   │   └── deny.js         # Admin: request → denied, with a reason
 │   │   ├── staff/
 │   │   │   ├── add.js          # Admin: add a person by email (0 vacations), name resolved via Graph
+│   │   │   ├── archive.js      # Admin: archive an ex-staff member (hidden, history kept, pending requests closed)
+│   │   │   ├── unarchive.js    # Admin: bring an archived person back into the main panels
 │   │   │   └── delete.js       # Admin: permanently remove a person, their vacations, and their requests
 │   │   └── notify/
 │   │       ├── unsubscribe.js  # One-click, no-login unsubscribe link clicked from the notification email
@@ -73,7 +76,9 @@ A single-page web application for tracking instructor and office employee vacati
     ├── graphUsers.test.js
     ├── staffAdd.test.js
     ├── staffDelete.test.js
-    └── leaveType.test.js
+    ├── leaveType.test.js
+    ├── archive.test.js          # Archiving scenarios end-to-end (see "Archiving Ex-Staff")
+    └── ...                      # plus dataAudit, auditList, requestsDecision tests
 ```
 
 ---
@@ -112,7 +117,37 @@ Cloudflare KV (key-value store)
 - Their display name is looked up automatically via Microsoft Graph (requires the `User.ReadBasic.All` permission — see Step 5 above). If that lookup can't find or confirm the account (permission not granted yet, or the address isn't in this tenant), you're prompted to type their name instead and the record is still created.
 - If that email is already linked to someone, you'll get an error naming who instead of a duplicate.
 
+**Archiving vs. deleting** — for someone who has *left*, use 📦 **Archive** (next section), not 🗑 Delete. Archiving keeps their record and is reversible; deleting is permanent.
+
 **Deleting a staff member** — the 🗑 button next to the ✎ edit button on each person's card permanently removes their profile, every vacation entry, and their request history (pending, approved, or denied). A confirmation dialog spells out exactly what's being deleted before it happens, and it cannot be undone from within the app — restoring someone would mean restoring from a [daily backup](#daily-backups). The deletion itself is recorded in the Activity Log (who removed them and when), same as it always has been for the "delete someone's last vacation entry" path.
+
+---
+
+## Archiving Ex-Staff
+
+When an instructor or office employee leaves, click the **📦** button next to ✎ on their card. They move out of the Instructors / Office Employees panel into the **Archived** tab (next to Office Employees in the admin tab bar). Nothing is deleted.
+
+| | Active staff | Archived (ex-)staff |
+|---|---|---|
+| Shown in Instructors / Office Employees panels, tab counts, stats | ✅ | ❌ — only under **Archived** |
+| Team Calendar, page-load "ending soon" alerts, name suggestions | ✅ | ❌ |
+| Vacation history, requests, Activity Log entries | ✅ | ✅ kept exactly as they were |
+| Can sign in and see their own history | ✅ | ✅ with a notice that their profile is archived |
+| Can submit a time-off request | ✅ | ❌ — button hidden **and** rejected by the server (403) |
+| Admin can add/remove time off or edit them | ✅ | ❌ — read-only; **↩ Unarchive** first |
+| Admin can permanently delete them | ✅ | ✅ (🗑 still available on the Archived card) |
+
+**What happens to their requests when they're archived:** any request still *pending* is closed automatically (stored as denied, with the reason *"Automatically closed — this staff member was archived."*, `autoClosed: true`, and who/when), so nothing is left sitting in the admin queue. It shows as **Closed** in the Activity Log and in the person's own "My Requests." Approved/denied requests and all vacation entries — past *and* future-dated — stay on the record untouched. To remove a future entry an ex-employee no longer needs, unarchive them, delete the entry, and archive again.
+
+**Unarchiving (e.g. a rehire):** click **↩ Unarchive** on their Archived card. They return to their original panel with all history intact and can request time off again; requests that were auto-closed stay closed. If an admin tries to **+ Add Staff Member** with an archived person's email, the app says so and offers to unarchive them instead of creating a duplicate profile. Unarchiving is refused if another *active* record is already using the same sign-in email, so one login never maps to two people.
+
+Every archive and unarchive is recorded in the Activity Log (who, when, how many vacations kept, how many pending requests closed).
+
+**Edge cases handled server-side** (not just hidden in the UI): approving a stale pending request for an archived person → refused (409); approving a first-time request whose email now belongs to an archived person → refused rather than creating a second profile; adding time off by name for someone who's only in the Archived list → blocked with a prompt to unarchive.
+
+**Storage / data safety:** archiving is just an `archived: true` flag (plus `archivedAt` / `archivedByEmail`) on the existing person record, still inside the same `tracker-data` KV value, in the same `instructors` / `employees` array. Nothing is moved, renamed or copied, so there's no migration step, no new KV key, no new Cloudflare binding or environment variable, and the daily backup Worker needs no changes (archived people are in every snapshot like everyone else). Records created before this feature are treated as active (`functions/_lib/store.js` → `migrate()`).
+
+The flag can **only** change through `/api/staff/archive` and `/api/staff/unarchive`. The general admin save (`POST /api/data`) always keeps archived records exactly as stored. If a save leaves one out (an old browser tab still running a pre-2.10 version of the page) or sends a modified copy, the stored record is kept, and it can't archive or unarchive anyone either. So a stale tab can't silently delete or change an ex-employee's history.
 
 ---
 
@@ -331,10 +366,11 @@ The backend (`functions/`) has an automated test suite using Node's built-in tes
 npm test
 ```
 
-Requires Node 18+ (anything with `node:test` built in). This runs every `*.test.js` file under `test/` — 29 tests as of this writing, covering:
+Requires Node 18+ (anything with `node:test` built in). This runs every `*.test.js` file under `test/` — 82 tests as of this writing, covering:
 - **`functions/_lib/store.js`** — data migration/defaults (including the leave-type backfill described above), person lookups, admin/notify-opt-out logic
 - **`functions/_lib/graphUsers.js`** — the Microsoft Graph user-lookup call backing "Add Staff Member," with `global.fetch` stubbed so tests never touch the real network
 - **`functions/api/staff/add.js`** and **`staff/delete.js`** — validation, duplicate detection, the Graph-lookup-fails-so-ask-for-a-name fallback, and that deletion cleans up a person's requests and writes the right audit entry
+- **Archiving ex-staff** (`test/archive.test.js`) — archive/unarchive permissions and validation; history kept intact; pending requests auto-closed (including a first-time request matched by email) and nobody else's; an archived person submitting a request is rejected with nothing stored and no email sent; they still see their own history; stale approvals and duplicate-profile paths are refused; re-adding a rehire by email points to Unarchive; the general admin save can't delete, edit, move, archive or un-archive an archived record; and `notifyOptOuts` survive admin saves
 - **The leave-type feature end-to-end** (`test/leaveType.test.js`) — a staff request's `leaveType` survives submission, defaults correctly when omitted, carries onto the resulting vacation entry on approval (including the first-time-requester path that creates the person record), and that the admin full-roster save both normalizes a bogus `leaveType` and records it correctly on a vacation-deletion audit entry
 
 **What's intentionally *not* covered:** `index.html`'s frontend logic (rendering, the two split year-pills, calendar coloring, the modal). It's a single inline `<script>` with no module system by design — see "Local Development" above and the "no build step" note in Hosting — so unit-testing it would mean introducing a bundler/JSDOM purely for tests, which is a bigger architectural change than this feature warranted. The backend tests above verify the *data* is always correct (right `leaveType`, right defaults, right propagation); verifying the *pixels* (correct color swatch, pill layout, modal wiring) is a manual QA pass — reload the app, add a sick entry and a vacation entry for the same person, and confirm: the two year-pills on their card, the mini-calendar colors + legend, the countdown badge/banner wording and icon, and the colored tags in the Requests dropdown / Activity Log all agree with each other.

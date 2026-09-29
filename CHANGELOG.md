@@ -6,6 +6,27 @@ This log follows [Keep a Changelog](https://keepachangelog.com/) style. Version 
 
 ---
 
+## [2.10.0] - 2026-09-29
+
+### Added
+- **Archive ex-staff (instructors and office employees).** A 📦 button on every card archives someone who has left: they move out of the main panels into a new **Archived** tab, with their full vacation history, requests and Activity Log entries kept. **↩ Unarchive** brings them back exactly as they were. See the new **Archiving Ex-Staff** section in the README
+  - `functions/api/staff/archive.js` / `unarchive.js`, the only way the archive flag can change. Both are logged to the Activity Log (`person-archived` / `person-unarchived`)
+  - Archiving closes the person's pending requests automatically (stored as denied with an explanatory reason and `autoClosed: true`, shown as **Closed**)
+  - Archived staff can still sign in and see their history, with a notice; submitting a new request is rejected server-side (403) as well as hidden in the UI
+  - Archived staff are excluded from tab counts, stats, the Team Calendar, page-load alerts and name suggestions; their cards are greyed and read-only
+  - Adding a staff member whose email belongs to an archived person offers to unarchive them instead of creating a duplicate; approving a request for an archived person is refused (409)
+- `test/archive.test.js`: 29 scenario tests (82 total)
+
+### Fixed
+- **Admin saves no longer reset `notifyOptOuts`.** `POST /api/data` rebuilt the stored value from only instructors/employees/requests/auditLog, so any admin's "unsubscribe from notifications" choice was silently cleared the next time anyone saved. It now starts from the full stored value and overwrites only the fields it manages, so this field and any added later are kept
+
+### Changed
+- `POST /api/data` keeps archived records exactly as stored, even if the client omits or modifies them (e.g. an old cached page), and ignores archive fields sent by the client
+- `findPersonByEmail()` still finds archived records, but prefers an active record with the same email
+
+### Migration notes
+- No manual step, no new KV key, binding or environment variable. `archived` is a flag on the existing person record; every record from before this version is treated as active. The backup Worker is unchanged
+
 ## [2.9.0] - 2026-09-14
 
 ### Added
