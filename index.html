@@ -246,6 +246,12 @@
   .req-pending  { color: #92400e; background: #fffbeb; border-color: #fbbf24; }
   .req-approved { color: var(--dark-green); background: var(--green-pale); border-color: var(--green-light); }
   .req-denied   { color: #b3261e; background: #fde8e7; border-color: #f3b9b4; }
+  .req-archived { color: var(--grey-700); background: var(--grey-100); border-color: var(--grey-300); }
+  /* Archived (ex-staff) cards: greyed avatar so they never read as current staff at a glance. */
+  .card-archived .instructor-avatar { background: linear-gradient(135deg, var(--grey-500) 0%, var(--grey-700) 100%); }
+  .card-archived .card-name { color: var(--grey-700); }
+  .archived-notice { background: var(--grey-100); border: 1px solid var(--grey-300); color: var(--grey-700); border-radius: 8px; padding: 12px 14px; font-size: 13px; margin-bottom: 14px; }
+  .archived-notice strong { color: var(--text); }
   .vac-del-btn { background: transparent; border: none; cursor: pointer; color: var(--grey-300); padding: 5px; border-radius: 5px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: color 0.1s, background 0.1s; }
   .vac-del-btn:hover { color: #b3261e; background: #fde8e7; }
   .no-vacations { font-size: 13px; color: var(--grey-500); padding: 8px 0; margin: 0 0 14px; }
@@ -471,6 +477,10 @@
     <button class="tab-btn" data-tab="employees" id="tabEmp">
       Office Employees
       <span class="tab-count" id="tabCountEmp">0</span>
+    </button>
+    <button class="tab-btn" data-tab="archived" id="tabArch" title="Ex-staff — hidden from the main lists, history kept">
+      Archived
+      <span class="tab-count" id="tabCountArch">0</span>
     </button>
     <div class="tab-req-wrap">
       <button class="tab-btn" id="tabReq" type="button" aria-haspopup="true" aria-expanded="false">
@@ -715,7 +725,7 @@
   'use strict';
 
   const STORAGE_KEY = 'holidayTrackerData_v1';
-  const APP_VERSION = '2.9.0';
+  const APP_VERSION = '2.10.0';
   const THIS_YEAR   = new Date().getFullYear();
   const TODAY_STR   = new Date().toISOString().slice(0, 10);
 
@@ -734,9 +744,29 @@
     [...d.instructors, ...d.employees].forEach(p => {
       if (typeof p.email !== 'string') p.email = '';
       (p.vacations || []).forEach(v => { if (v.leaveType !== 'sick') v.leaveType = 'vacation'; });
+      p.archived = p.archived === true;
     });
     return d;
   }
+
+  // ── Archived (ex-)staff ────────────────────────────────
+  // An archived person stays in data.instructors / data.employees (the server
+  // never moves or drops them) — they're just filtered out of the two main
+  // panels, the Team Calendar, notifications and the name picker, and shown
+  // on their own under the Archived tab instead.
+  function activePeople(cat) { return (data[cat] || []).filter(p => !p.archived); }
+  function archivedPeople() {
+    return ['instructors', 'employees'].flatMap(cat =>
+      (data[cat] || []).filter(p => p.archived).map(person => ({ person, cat })));
+  }
+  // What the current view lists, as {person, cat} pairs — the Archived tab
+  // pools both categories, so each card needs to know which one it came from.
+  function currentPeople() {
+    if (!canEdit()) return (data[activeTab] || []).map(person => ({ person, cat: activeTab })); // staff: just their own record
+    if (activeTab === 'archived') return archivedPeople();
+    return activePeople(activeTab).map(person => ({ person, cat: activeTab }));
+  }
+  function catLabel(cat) { return cat === 'instructors' ? 'Instructors' : 'Office Employees'; }
 
   // Admins (and local dev) can edit directly; staff can only view + request.
   function canEdit() { return IS_LOCAL || (session && session.role === 'admin'); }
@@ -923,6 +953,8 @@
       document.getElementById('emptyTitle').textContent = 'No vacation time logged yet';
       document.getElementById('emptyMsg').textContent = linked ? 'Submit a time off request below to get started.' : '';
       // Unlinked staff can still submit a request — approving it is what creates their profile.
+      // Archived (ex-)staff can't — the server rejects it too; this just doesn't offer it.
+      if (linked && session.person.archived) document.getElementById('openRequestModal').classList.add('field-hidden');
     }
   }
 
@@ -1166,13 +1198,13 @@
 
   // ── Stats & Tabs ───────────────────────────────────────
   function updateStats() {
-    const people = data[activeTab] || [];
+    const people = currentPeople().map(e => e.person);
     const onVacNow  = people.filter(p => p.vacations.some(v => isActiveToday(v.startDate, v.endDate))).length;
     const upcoming  = people.filter(p => p.vacations.some(v => v.startDate > TODAY_STR)).length;
     document.getElementById('statTotal').textContent    = people.length;
     document.getElementById('statOnVac').textContent    = onVacNow;
     document.getElementById('statUpcoming').textContent = upcoming;
-    document.getElementById('statTotalLbl').textContent = activeTab === 'instructors' ? 'Instructors' : 'Office Employees';
+    document.getElementById('statTotalLbl').textContent = activeTab === 'archived' ? 'Archived' : catLabel(activeTab);
 
     const isAdmin = !!(session && session.role === 'admin');
     document.getElementById('statLogLbl').textContent = isAdmin ? 'Log' : 'Entries This Year';
@@ -1183,13 +1215,22 @@
   }
 
   function updateTabCounts() {
-    document.getElementById('tabCountInst').textContent = data.instructors.length;
-    document.getElementById('tabCountEmp').textContent  = data.employees.length;
+    document.getElementById('tabCountInst').textContent = activePeople('instructors').length;
+    document.getElementById('tabCountEmp').textContent  = activePeople('employees').length;
+    document.getElementById('tabCountArch').textContent = archivedPeople().length;
   }
 
   function switchTab(tab) {
     activeTab = tab;
     document.querySelectorAll('.tab-btn[data-tab]').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+    if (tab === 'archived') {
+      // Keeps whichever panel theme was last active — Archived has no color of its own.
+      document.getElementById('sectionLabel').textContent = 'Archived Staff';
+      document.getElementById('emptyTitle').textContent   = 'No archived staff';
+      document.getElementById('emptyMsg').textContent     = 'Use the 📦 button on someone\'s card to archive an ex-employee — they\'ll move here with their history kept, and can be unarchived any time.';
+      render();
+      return;
+    }
     const hdr = document.getElementById('siteHeader');
     hdr.classList.toggle('theme-inst', tab === 'instructors');
     hdr.classList.toggle('theme-emp',  tab === 'employees');
@@ -1197,7 +1238,7 @@
     ftr.classList.toggle('theme-inst', tab === 'instructors');
     ftr.classList.toggle('theme-emp',  tab === 'employees');
 
-    const label = tab === 'instructors' ? 'Instructors' : 'Office Employees';
+    const label = catLabel(tab);
     document.getElementById('sectionLabel').textContent = 'All ' + label;
     document.getElementById('emptyTitle').textContent   = 'No ' + label.toLowerCase() + ' yet';
     document.getElementById('emptyMsg').textContent     = 'Click "Add Vacation / Off Time" to log the first entry.';
@@ -1211,9 +1252,12 @@
     updateStats();
 
     const query    = document.getElementById('searchInput').value.trim().toLowerCase();
-    const people   = data[activeTab] || [];
-    const sorted   = [...people].sort((a,b) => a.name.localeCompare(b.name));
-    const filtered = query ? sorted.filter(p => p.name.toLowerCase().includes(query)) : sorted;
+    const entries  = currentPeople();
+    const people   = entries.map(e => e.person);
+    const sorted   = [...entries].sort((a,b) => a.person.name.localeCompare(b.person.name));
+    const filtered = query ? sorted.filter(e => e.person.name.toLowerCase().includes(query)) : sorted;
+    // Ex-staff aren't off work, they're gone — keep them off the Team Calendar.
+    const teamCal  = () => activeTab === 'archived' ? '' : buildSectionCalendar(people);
 
     const cardList   = document.getElementById('cardList');
     const emptyState = document.getElementById('emptyState');
@@ -1222,10 +1266,13 @@
     const secCal = document.getElementById('sectionCal');
     if (people.length === 0) { cardList.innerHTML=''; emptyState.style.display='block'; noResults.style.display='none'; secCal.innerHTML=''; return; }
     emptyState.style.display = 'none';
-    if (filtered.length === 0) { cardList.innerHTML=''; noResults.style.display='block'; secCal.innerHTML = buildSectionCalendar(people); return; }
+    if (filtered.length === 0) { cardList.innerHTML=''; noResults.style.display='block'; secCal.innerHTML = teamCal(); return; }
     noResults.style.display = 'none';
 
-    cardList.innerHTML = filtered.map(p => renderCard(p)).join('');
+    const archivedSelf = !canEdit() && session && session.person && session.person.archived;
+    cardList.innerHTML = (archivedSelf
+      ? `<div class="archived-notice"><strong>Your staff profile has been archived.</strong> Your past time off is still shown below, but new time-off requests are closed. If this is a mistake, please contact an administrator.</div>`
+      : '') + filtered.map(e => renderCard(e.person, e.cat)).join('');
 
     if (pendingFlashId) {
       const el = document.querySelector(`[data-inst-id="${pendingFlashId}"]`);
@@ -1233,10 +1280,10 @@
       pendingFlashId = null;
     }
 
-    secCal.innerHTML = buildSectionCalendar(people);
+    secCal.innerHTML = teamCal();
 
-    // Rebuild datalist from both groups
-    const all = [...data.instructors, ...data.employees];
+    // Rebuild datalist from both groups (active staff only — time off can't be added for an archived person)
+    const all = [...activePeople('instructors'), ...activePeople('employees')];
     document.getElementById('nameSuggestions').innerHTML = all.map(p=>`<option value="${escHtml(p.name)}">`).join('');
   }
 
@@ -1259,9 +1306,31 @@
   }
 
   // Addition/deletion entries in the Activity Log — a person or vacation an admin added or removed.
-  function auditTimestamp(a) { return a.deletedAt || a.addedAt || 0; }
+  function auditTimestamp(a) { return a.deletedAt || a.addedAt || a.archivedAt || a.unarchivedAt || 0; }
   const IS_ADD_AUDIT = { 'person-added': true, 'vacation-added': true };
+  function renderArchiveAuditItem(a) {
+    const isArch = a.type === 'person-archived';
+    const catTag = `<span class="cat-tag cat-tag-${a.category}">${a.category === 'instructors' ? 'Instructor' : 'Office Employee'}</span>`;
+    const who  = (isArch ? a.archivedByEmail : a.unarchivedByEmail) || 'unknown';
+    const ts   = auditTimestamp(a);
+    const when = ts ? fmtDate(new Date(ts).toISOString().slice(0, 10)) : '';
+    const n    = a.vacationCount || 0;
+    const line = isArch
+      ? `Archived — ${n} vacation${n === 1 ? '' : 's'} kept on record` +
+        (a.closedRequestCount ? `, ${a.closedRequestCount} pending request${a.closedRequestCount === 1 ? '' : 's'} closed` : '')
+      : `Unarchived — back in ${catLabel(a.category)}`;
+    return `
+    <div class="vac-item">
+      <div class="vac-dates">
+        <p class="vac-date-range">${escHtml(a.personName)} ${catTag}</p>
+        <p class="vac-note">${line}</p>
+        <p class="vac-note">by ${escHtml(who)}${when ? ' on ' + when : ''}</p>
+      </div>
+      <span class="vac-active-tag ${isArch ? 'req-archived' : 'req-approved'}" style="flex-shrink:0">${isArch ? 'Archived' : 'Unarchived'}</span>
+    </div>`;
+  }
   function renderAuditItem(a) {
+    if (a.type === 'person-archived' || a.type === 'person-unarchived') return renderArchiveAuditItem(a);
     const isAdd = !!IS_ADD_AUDIT[a.type];
     const catTag = `<span class="cat-tag cat-tag-${a.category}">${a.category === 'instructors' ? 'Instructor' : 'Office Employee'}</span>`;
     const who  = (isAdd ? a.addedByEmail : a.deletedByEmail) ? escHtml(isAdd ? a.addedByEmail : a.deletedByEmail) : 'unknown';
@@ -1317,7 +1386,7 @@
             <button class="btn btn-xs btn-ghost" data-action="deny-req">Deny</button>
           </div>`;
     } else {
-      const label = req.status === 'approved' ? 'Approved' : 'Denied';
+      const label = req.status === 'approved' ? 'Approved' : (req.autoClosed ? 'Closed' : 'Denied');
       actionsHtml = `<div class="req-item-actions"><span class="vac-active-tag req-${req.status}">${label}</span></div>`;
     }
 
@@ -1485,7 +1554,7 @@
           ${r.status==='denied' && r.denialReason ? `<p class="vac-note" style="color:#b3261e">Reason: ${escHtml(r.denialReason)}</p>` : ''}
         </div>
         <div class="vac-duration">
-          <span class="vac-active-tag req-${r.status}">${pillLbl[r.status] || r.status}</span>
+          <span class="vac-active-tag req-${r.status}">${r.autoClosed ? 'Closed' : (pillLbl[r.status] || r.status)}</span>
         </div>
       </div>`).join('')}</div></div>`;
   }
@@ -1501,16 +1570,20 @@
           </div>`;
   }
 
-  function renderCard(person) {
+  function renderCard(person, cat) {
     const totals     = yearTotals(person, THIS_YEAR); // combined — footer rollup only
     const vacTotals   = yearTotals(person, THIS_YEAR, 'vacation');
     const sickTotals  = yearTotals(person, THIS_YEAR, 'sick');
     const isCollapsed = !!collapseState[person.id];
     const onVacNow   = person.vacations.some(v => isActiveToday(v.startDate, v.endDate));
     const allDays    = dedupedDayCount(person.vacations);
-    const cardType   = activeTab === 'instructors' ? 'card-inst' : 'card-emp';
-    const addBtnCls  = activeTab === 'instructors' ? 'btn-navy'  : 'btn-primary';
-    const editable   = canEdit();
+    const cardType   = cat === 'instructors' ? 'card-inst' : 'card-emp';
+    const addBtnCls  = cat === 'instructors' ? 'btn-navy'  : 'btn-primary';
+    // An archived record is read-only history: no adding/removing time off or
+    // editing — only Unarchive, or permanent Delete.
+    const isAdmin    = canEdit();
+    const archived   = !!person.archived;
+    const editable   = isAdmin && !archived;
 
     const vacsSorted = [...person.vacations].sort((a,b) => b.startDate.localeCompare(a.startDate));
     const vacsHtml   = vacsSorted.length === 0
@@ -1541,15 +1614,19 @@
         }).join('');
 
     return `
-    <div class="instructor-card ${cardType}${isCollapsed?' card-collapsed':''}" data-inst-id="${person.id}">
+    <div class="instructor-card ${cardType}${archived?' card-archived':''}${isCollapsed?' card-collapsed':''}" data-inst-id="${person.id}" data-cat="${cat}">
       <div class="card-header" data-action="toggle-card">
         <div class="avatar-wrap">
           <div class="instructor-avatar">${escHtml(initials(person.name))}</div>
           ${onVacNow ? `<div class="on-vacation-dot"></div>` : ''}
         </div>
         <div class="card-info">
-          <p class="card-name">${escHtml(person.name)}${editable ? ` <button class="btn btn-xs btn-ghost" data-action="edit-person" title="Edit name / sign-in email" style="margin-left:6px;vertical-align:2px">✎</button><button class="btn btn-xs btn-ghost" data-action="delete-person" title="Delete this staff member completely" style="margin-left:2px;vertical-align:2px;color:#b3261e">🗑</button>` : ''}</p>
-          <p class="card-meta">${totals.count} entr${totals.count===1?'y':'ies'} in ${THIS_YEAR} · ${person.vacations.length} total</p>
+          <p class="card-name">${escHtml(person.name)}${archived && isAdmin ? `<span class="cat-tag cat-tag-${cat}">${cat === 'instructors' ? 'Instructor' : 'Office Employee'}</span>` : ''}${editable
+            ? ` <button class="btn btn-xs btn-ghost" data-action="edit-person" title="Edit name / sign-in email" style="margin-left:6px;vertical-align:2px">✎</button><button class="btn btn-xs btn-ghost" data-action="archive-person" title="Archive (ex-staff) — hide from this list, keep all history" style="margin-left:2px;vertical-align:2px">📦</button><button class="btn btn-xs btn-ghost" data-action="delete-person" title="Delete this staff member completely" style="margin-left:2px;vertical-align:2px;color:#b3261e">🗑</button>`
+            : archived && isAdmin
+              ? ` <button class="btn btn-xs btn-ghost" data-action="unarchive-person" title="Move back to ${catLabel(cat)}" style="margin-left:6px;vertical-align:2px">↩ Unarchive</button><button class="btn btn-xs btn-ghost" data-action="delete-person" title="Delete this staff member completely" style="margin-left:2px;vertical-align:2px;color:#b3261e">🗑</button>`
+              : ''}</p>
+          <p class="card-meta">${totals.count} entr${totals.count===1?'y':'ies'} in ${THIS_YEAR} · ${person.vacations.length} total${archived && isAdmin && person.archivedAt ? ` · Archived ${fmtDate(new Date(person.archivedAt).toISOString().slice(0, 10))}${person.archivedByEmail ? ' by ' + escHtml(person.archivedByEmail) : ''}` : ''}</p>
         </div>
         ${renderCountdownBadge(person)}
         <div class="year-summary">
@@ -1644,7 +1721,8 @@
     const card = e.target.closest('.instructor-card');
     if (!card) return;
     const personId = card.dataset.instId;
-    const person   = (data[activeTab] || []).find(p => p.id === personId);
+    const cardCat  = card.dataset.cat;
+    const person   = (data[cardCat] || []).find(p => p.id === personId);
     if (!person) return;
     const actionEl = e.target.closest('[data-action]');
     if (!actionEl) return;
@@ -1657,12 +1735,22 @@
     }
     if (action === 'edit-person') {
       e.stopPropagation();
-      openPersonModal(personId);
+      openPersonModal(personId, cardCat);
       return;
     }
     if (action === 'delete-person') {
       e.stopPropagation();
-      deletePerson(personId, activeTab, person);
+      deletePerson(personId, cardCat, person);
+      return;
+    }
+    if (action === 'archive-person') {
+      e.stopPropagation();
+      archivePerson(personId, cardCat, person);
+      return;
+    }
+    if (action === 'unarchive-person') {
+      e.stopPropagation();
+      unarchivePerson(personId, cardCat, person.name);
       return;
     }
     if (action === 'del-vac') {
@@ -1672,7 +1760,7 @@
       const vac = person.vacations.find(v => v.id === vacEl.dataset.vacId);
       if (!vac) return;
       if (!confirm(`Delete vacation ${fmtRange(vac.startDate, vac.endDate)} for ${person.name}?`)) return;
-      const cat = activeTab, vacId = vac.id, targetPersonId = personId, personName = person.name;
+      const cat = cardCat, vacId = vac.id, targetPersonId = personId, personName = person.name;
       let removedPerson = false, stillExists = true;
       (async () => {
         await saveData(fresh => {
@@ -1701,7 +1789,7 @@
     }
     if (action === 'add-vac-for') {
       e.stopPropagation();
-      openModal(actionEl.dataset.name || '', activeTab);
+      openModal(actionEl.dataset.name || '', cardCat);
     }
   });
 
@@ -1743,7 +1831,7 @@
     rEndDate.checked = true;
     rLeaveVacation.checked = true; rLeaveSick.checked = false;
     fEndWrap.classList.remove('field-hidden'); fWksWrap.classList.add('field-hidden'); fDaysWrap.classList.add('field-hidden'); fHalfDayWrap.classList.add('field-hidden');
-    const cat = catOverride || activeTab;
+    const cat = catOverride || (activeTab === 'archived' ? 'instructors' : activeTab);
     rCatInst.checked = cat === 'instructors';
     rCatEmp.checked  = cat === 'employees';
     formError.classList.remove('show');
@@ -1757,7 +1845,7 @@
 
     overlay.classList.add('open');
     setTimeout(() => (modalIsRequest || prefill ? fStart : fName).focus(), 50);
-    const all = [...data.instructors, ...data.employees];
+    const all = [...activePeople('instructors'), ...activePeople('employees')];
     document.getElementById('nameSuggestions').innerHTML = all.map(p=>`<option value="${escHtml(p.name)}">`).join('');
   }
   function closeModal() { overlay.classList.remove('open'); }
@@ -1848,7 +1936,15 @@
     // books — checked against the freshest data, since another admin could
     // have added something since this page loaded.
     const preCheck = IS_LOCAL ? data : await fetchFreshData();
-    const existingPerson = preCheck[targetKey].find(p => p.name.toLowerCase() === name.toLowerCase());
+    const sameName = p => p.name.toLowerCase() === name.toLowerCase();
+    const existingPerson = preCheck[targetKey].find(p => !p.archived && sameName(p));
+    // Matching only an archived ex-employee by name: don't silently create a
+    // second record for them (or add time off to a record the server treats
+    // as read-only) — point the admin at Unarchive instead.
+    if (!existingPerson && preCheck[targetKey].some(p => p.archived && sameName(p))) {
+      showErr(`${name} is archived. Unarchive them from the Archived tab first if they're back, or use a different name.`);
+      return;
+    }
     if (existingPerson) {
       const overlaps = findOverlappingVacations(existingPerson.vacations, r.startDate, r.endDate);
       if (overlaps.length) {
@@ -1860,8 +1956,8 @@
 
     let flashId = null;
     await saveData(fresh => {
-      let person = fresh[targetKey].find(p => p.name.toLowerCase() === name.toLowerCase());
-      if (!person) { person = { id: uid(), name, email: '', vacations: [] }; fresh[targetKey].push(person); }
+      let person = fresh[targetKey].find(p => !p.archived && sameName(p));
+      if (!person) { person = { id: uid(), name, email: '', vacations: [], archived: false }; fresh[targetKey].push(person); }
       person.vacations.push({ id: uid(), leaveType: r.leaveType, startDate: r.startDate, endDate: r.endDate, note: r.note, worksSaturday: r.worksSaturday, halfDay: r.halfDay, halfDayFrom: r.halfDayFrom, createdAt: Date.now() });
       flashId = person.id;
     });
@@ -1884,11 +1980,11 @@
   let personTargetId = null;
   let personTargetCat = null;
 
-  function openPersonModal(personId) {
-    const person = (data[activeTab] || []).find(p => p.id === personId);
+  function openPersonModal(personId, cat) {
+    const person = (data[cat] || []).find(p => p.id === personId);
     if (!person) return;
     personTargetId = personId;
-    personTargetCat = activeTab;
+    personTargetCat = cat;
     pName.value = person.name;
     pEmail.value = person.email || '';
     personFormError.classList.remove('show');
@@ -1950,6 +2046,85 @@
     } catch { showToast('Failed to delete staff member. Please try again.'); }
   }
 
+  // ── Archive / Unarchive Staff Member (admin) ────────────
+  // The non-destructive alternative to Delete for someone who has left:
+  // they drop out of the main panels into the Archived tab, but their record,
+  // vacation history and requests all stay exactly as they are. Done through
+  // dedicated endpoints (not the generic /api/data save), which is also the
+  // only way the archive flag can change server-side.
+  function replaceLocalPerson(cat, updated) {
+    data[cat] = (data[cat] || []).map(p => p.id === updated.id ? updated : p);
+    saveToLocalStorage();
+  }
+
+  async function refreshAfterStaffChange() {
+    render();
+    if (session && session.role === 'admin') {
+      await Promise.all([loadAdminRequests(), loadAuditLog()]);
+      renderReqDropdownList();
+    }
+  }
+
+  async function archivePerson(personId, cat, person) {
+    const email = (person.email || '').toLowerCase();
+    const pendingCount = adminRequests.filter(r => r.status === 'pending' &&
+      (r.personId === personId || (!r.personId && email && (r.submittedByEmail || '').toLowerCase() === email))).length;
+    const msg = `Archive ${person.name}?\n\n` +
+      `They'll move out of ${catLabel(cat)} into the Archived tab. All of their vacation history and past requests are kept, and you can unarchive them at any time.\n\n` +
+      (pendingCount ? `Their ${pendingCount} pending request${pendingCount === 1 ? '' : 's'} will be closed.\n` : '') +
+      `While archived they can't submit new time-off requests.`;
+    if (!confirm(msg)) return;
+
+    if (IS_LOCAL) {
+      replaceLocalPerson(cat, { ...person, archived: true, archivedAt: Date.now() });
+      render();
+      showToast(`Archived ${person.name}.`);
+      return;
+    }
+    try {
+      const resp = await fetch('/api/staff/archive', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ personId, category: cat })
+      });
+      const j = await resp.json().catch(() => ({}));
+      if (resp.status === 401) { location.href = '/api/auth/login'; return; }
+      if (!resp.ok) { showToast(j.error || 'Failed to archive staff member.'); await loadFromServer(); return; }
+      replaceLocalPerson(cat, j.person);
+      delete collapseState[personId];
+      await refreshAfterStaffChange();
+      showToast(`Archived ${person.name}` + (j.closedRequestCount ? ` — ${j.closedRequestCount} pending request${j.closedRequestCount === 1 ? '' : 's'} closed.` : '.'));
+    } catch { showToast('Failed to archive staff member. Please try again.'); }
+  }
+
+  // Returns true once they're back — Add Staff Member reuses this when an
+  // admin tries to re-add a rehire by email (skipConfirm: it already asked).
+  async function unarchivePerson(personId, cat, name, skipConfirm) {
+    if (!skipConfirm && !confirm(`Unarchive ${name}?\n\nThey'll return to ${catLabel(cat)} with all of their history, and can request time off again.`)) return false;
+
+    if (IS_LOCAL) {
+      const p = (data[cat] || []).find(pp => pp.id === personId);
+      if (p) { const { archivedAt, archivedByEmail, ...rest } = p; replaceLocalPerson(cat, { ...rest, archived: false }); }
+      render();
+      showToast(`${name} is back in ${catLabel(cat)}.`);
+      return true;
+    }
+    try {
+      const resp = await fetch('/api/staff/unarchive', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ personId, category: cat })
+      });
+      const j = await resp.json().catch(() => ({}));
+      if (resp.status === 401) { location.href = '/api/auth/login'; return false; }
+      if (!resp.ok) { showToast(j.error || 'Failed to unarchive staff member.'); await loadFromServer(); return false; }
+      replaceLocalPerson(cat, j.person);
+      await refreshAfterStaffChange();
+      showToast(`${name} is back in ${catLabel(cat)}.`);
+      return true;
+    } catch { showToast('Failed to unarchive staff member. Please try again.'); return false; }
+  }
+
   // ── Add Staff Member Modal (admin) ──────────────────────
   // Closes the gap where a person only ever showed up once someone logged a
   // vacation for them — this adds a profile straight away, with 0 days off,
@@ -1967,7 +2142,7 @@
   let addStaffNeedsName = false;
 
   function openAddStaffModal() {
-    asCatInst.checked = activeTab === 'instructors';
+    asCatInst.checked = activeTab !== 'employees';
     asCatEmp.checked  = activeTab === 'employees';
     asEmail.value = '';
     asName.value = '';
@@ -2003,7 +2178,15 @@
       });
       const j = await resp.json().catch(() => ({}));
       if (!resp.ok) {
-        if (j.error === 'not_found' || j.error === 'lookup_failed') {
+        if (j.error === 'archived') {
+          if (confirm(`${j.message}\n\nUnarchive ${j.name} now?`)) {
+            closeAddStaffModal();
+            if (await unarchivePerson(j.personId, j.category, j.name, true) && activeTab !== j.category) switchTab(j.category);
+          } else {
+            addStaffFormError.textContent = j.message;
+            addStaffFormError.classList.add('show');
+          }
+        } else if (j.error === 'not_found' || j.error === 'lookup_failed') {
           addStaffNeedsName = true;
           asNameWrap.classList.remove('field-hidden');
           addStaffFormError.textContent = j.message || 'Could not look up that email — enter their name manually.';
@@ -2017,7 +2200,7 @@
       }
       closeAddStaffModal();
       data[category] = data[category] || [];
-      data[category].push(j.person);
+      data[category].push({ ...j.person, archived: false });
       saveToLocalStorage();
       if (category !== activeTab) switchTab(category); else render();
       showToast(`Added ${j.person.name}.`);
@@ -2079,7 +2262,7 @@
     const dismissed = new Set(JSON.parse(sessionStorage.getItem('dismissedNotifs')||'[]'));
     const notifs = [];
 
-    [...data.instructors, ...data.employees].forEach(person => {
+    [...data.instructors, ...data.employees].filter(p => !p.archived).forEach(person => {
       person.vacations.forEach(v => {
         const dU = Math.round((new Date(v.endDate+'T00:00:00') - today) / 86400000);
         if (dU>=0&&dU<=3) { const id=`ending-${v.id}`; if (!dismissed.has(id)) notifs.push({id,type:'ending',name:person.name,v,dU}); }
