@@ -303,7 +303,7 @@ No server restarts, no downtime.
 
 ## Daily Backups
 
-A separate small Cloudflare Worker (`backup-worker/`), deployed and live at **https://holiday-tracker-backup.arda-eksioglu12.workers.dev**, automatically snapshots the KV data once a day, keeping the **last 3 snapshots** and overwriting the oldest each time a new one is taken.
+A separate small Cloudflare Worker (`backup-worker/`), deployed with its public `workers.dev` URL **disabled** (`workers_dev = false`), automatically snapshots the KV data once a day, keeping the **last 3 snapshots** and overwriting the oldest each time a new one is taken.
 
 It has its own password, `BACKUP_PASSWORD`, deliberately separate from the main app's Microsoft sign-in — the backup/restore access (which can overwrite live data) is a single long random secret rather than tied to any one person's account. It's stored as an encrypted Wrangler secret (`wrangler secret put BACKUP_PASSWORD`), not in any file — keep the actual value in a password manager, not in this repo.
 
@@ -329,18 +329,21 @@ It has its own password, `BACKUP_PASSWORD`, deliberately separate from the main 
 
 ### Checking backups / restoring
 
-These call the deployed backup Worker directly and require the `X-Backup-Password` header (the value set via `wrangler secret put` above):
+The backup Worker is deliberately **not reachable from the internet** — a restore can overwrite live data, so it isn't exposed as a public URL. The daily cron runs regardless. To inspect or restore, use the Wrangler CLI against the KV namespace (you must be logged in to the Cloudflare account; replace `<KV_NAMESPACE_ID>` with the ID from `wrangler.toml`):
 
 ```bash
-# List backup timestamps
-curl -H "X-Backup-Password: yourbackuppassword" https://holiday-tracker-backup.arda-eksioglu12.workers.dev/list
+# List backup slots
+wrangler kv key list --namespace-id <KV_NAMESPACE_ID> --remote --prefix backup:
 
-# Force an extra backup right now
-curl -X POST -H "X-Backup-Password: yourbackuppassword" https://holiday-tracker-backup.arda-eksioglu12.workers.dev/run
+# Read one slot (backup:0, backup:1, backup:2) — JSON with savedAt + data
+wrangler kv key get backup:0 --namespace-id <KV_NAMESPACE_ID> --remote
 
-# Restore slot 0/1/2 back into the live app (overwrites current data!)
-curl -X POST -H "X-Backup-Password: yourbackuppassword" https://holiday-tracker-backup.arda-eksioglu12.workers.dev/restore/0
+# Restore: first save a copy of what's live, then write the slot's "data" value back
+wrangler kv key get tracker-data --namespace-id <KV_NAMESPACE_ID> --remote > before-restore.json
+wrangler kv key put tracker-data --path restored.json --namespace-id <KV_NAMESPACE_ID> --remote
 ```
+
+If you ever do put the Worker behind a custom domain, protect it with Cloudflare Access first. Its built-in `X-Backup-Password` check is a second layer, not a substitute; `/restore/N` also saves the data it replaces to `backup:pre-restore`.
 
 ---
 

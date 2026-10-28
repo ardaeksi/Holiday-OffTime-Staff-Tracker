@@ -83,7 +83,12 @@ export async function getSession(request, env) {
   const cookies = parseCookies(request);
   const token = cookies[COOKIE_NAME];
   if (!token) return null;
-  return verifySession(token, env.SESSION_SECRET);
+  const payload = await verifySession(token, env.SESSION_SECRET);
+  // Other signed tokens share this secret and format (e.g. the long-lived
+  // emailed unsubscribe link, which carries `purpose`). They must never be
+  // accepted as a login session just because the signature checks out.
+  if (!payload || payload.purpose || (payload.role !== 'admin' && payload.role !== 'staff')) return null;
+  return payload;
 }
 
 export function sessionCookieHeader(token) {
